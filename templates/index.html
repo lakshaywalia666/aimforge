@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Browser FPS</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+        }
+        #blocker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+        }
+        /* Simple CSS Crosshair */
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: white;
+        }
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff00;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+            z-index: 5;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="ui">Targets Destroyed: <span id="score">0</span></div>
+    
+    <div id="crosshair" style="display: none;"></div>
+
+    <div id="blocker">
+        <h1 style="font-size: 40px; text-transform: uppercase;">Browser FPS</h1>
+        <p style="font-size: 20px;">Click anywhere to play</p>
+        <p style="color: #aaa;">WASD to move | Mouse to look | Left Click to shoot</p>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // 1. Scene Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb); // Sky blue
+        scene.fog = new THREE.Fog(0x87ceeb, 0, 750);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1000);
+        camera.position.y = 10;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. Lighting
+        const hemiLight = new THREE.HemisphereLight(0xeeeeff, 0x777788, 0.75);
+        hemiLight.position.set(0.5, 1, 0.75);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(20, 100, 10);
+        scene.add(dirLight);
+
+        // 3. Environment (Floor)
+        const floorGeometry = new THREE.PlaneGeometry(2000, 2000, 10, 10);
+        const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x223322 });
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        // 4. Targets (Enemies)
+        const targets = [];
+        const boxGeometry = new THREE.BoxGeometry(10, 10, 10);
+        const boxMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 }); // Red targets
+
+        for (let i = 0; i < 50; i++) {
+            const box = new THREE.Mesh(boxGeometry, boxMaterial);
+            box.position.x = Math.floor(Math.random() * 20 - 10) * 20;
+            box.position.y = 5;
+            box.position.z = Math.floor(Math.random() * 20 - 10) * 20;
+            scene.add(box);
+            targets.push(box);
+        }
+
+        // 5. Controls & Movement
+        const controls = new PointerLockControls(camera, document.body);
+        const blocker = document.getElementById('blocker');
+        const crosshair = document.getElementById('crosshair');
+
+        blocker.addEventListener('click', () => controls.lock());
+        
+        controls.addEventListener('lock', () => {
+            blocker.style.display = 'none';
+            crosshair.style.display = 'block';
+        });
+        
+        controls.addEventListener('unlock', () => {
+            blocker.style.display = 'flex';
+            crosshair.style.display = 'none';
+        });
+
+        scene.add(controls.getObject());
+
+        const moveState = { forward: false, backward: false, left: false, right: false };
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+
+        document.addEventListener('keydown', (event) => {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': moveState.forward = true; break;
+                case 'ArrowLeft': case 'KeyA': moveState.left = true; break;
+                case 'ArrowDown': case 'KeyS': moveState.backward = true; break;
+                case 'ArrowRight': case 'KeyD': moveState.right = true; break;
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': moveState.forward = false; break;
+                case 'ArrowLeft': case 'KeyA': moveState.left = false; break;
+                case 'ArrowDown': case 'KeyS': moveState.backward = false; break;
+                case 'ArrowRight': case 'KeyD': moveState.right = false; break;
+            }
+        });
+
+        // 6. Shooting Mechanics
+        const raycaster = new THREE.Raycaster();
+        let score = 0;
+
+        document.addEventListener('mousedown', (event) => {
+            if (!controls.isLocked || event.button !== 0) return; // Only shoot if locked and left-clicking
+
+            // Cast ray from center of screen
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(targets);
+
+            if (intersects.length > 0) {
+                const hitTarget = intersects[0].object;
+                hitTarget.material.color.setHex(0x00ff00); // Turn green briefly
+                
+                // Remove target after a tiny delay
+                setTimeout(() => {
+                    scene.remove(hitTarget);
+                    targets.splice(targets.indexOf(hitTarget), 1);
+                }, 100);
+
+                score++;
+                document.getElementById('score').innerText = score;
+            }
+        });
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 7. Main Game Loop
+        let prevTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+
+            if (controls.isLocked === true) {
+                const delta = (time - prevTime) / 1000;
+
+                velocity.x -= velocity.x * 10.0 * delta; // Friction
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                direction.z = Number(moveState.forward) - Number(moveState.backward);
+                direction.x = Number(moveState.right) - Number(moveState.left);
+                direction.normalize();
+
+                const speed = 400.0;
+                if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
+                if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
