@@ -4,4 +4,6 @@ Playable Three.js aim trainer served by Flask.
 
 These images contain the cleaned application source, without production databases or private configuration. They are stored in a private Docker Hub repository. Runtime secrets are supplied by the local demo launcher.
 
-- `lakshaywalia666/portfolio-demos:aimforge-3d-trainer-20261010-1`
+- `lakshaywalia666/portfolio-demos:aimforge-3d-trainer-20261011-2`
+
+Captured-mouse and keyboard control modes are available. Keyboard mode with the Fire button was verified in the embedded browser.
