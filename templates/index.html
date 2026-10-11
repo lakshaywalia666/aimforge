@@ -56,8 +56,8 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three": "/static/vendor/three/three.module.js",
+                "three/addons/": "/static/vendor/three/"
             }
         }
     </script>
@@ -76,7 +76,7 @@
 
     <script type="module">
         import * as THREE from 'three';
-        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { PointerLockControls } from 'three/addons/PointerLockControls.js';
 
         // 1. Scene Setup
         const scene = new THREE.Scene();
