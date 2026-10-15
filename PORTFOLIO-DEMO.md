@@ -1,9 +1,7 @@
-# AimForge 3D Trainer: portfolio demonstration
+# AimForge demonstration
 
-Playable Three.js aim trainer served by Flask.
+The public browser demo is available at <https://lakshaywalia.com/demos/aimforge-3d-trainer/>.
 
-These images contain the cleaned application source, without production databases or private configuration. They are stored in a private Docker Hub repository. Runtime secrets are supplied by the local demo launcher.
+To run the same application locally, build the public `Dockerfile` or follow the Python setup in `README.md`. No registry credentials, database or private runtime configuration are required.
 
-- `lakshaywalia666/portfolio-demos:aimforge-3d-trainer-20261011-2`
-
-Captured-mouse and keyboard control modes are available. Keyboard mode with the Fire button was verified in the embedded browser.
+The score is held in the browser session. The application does not collect player records.

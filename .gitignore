@@ -28,7 +28,6 @@ __pycache__/
 **/db-private.php
 
 .git
-.github
 .portfolio-alignment
 **/node_modules
 **/.openai

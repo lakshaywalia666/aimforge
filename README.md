@@ -1,139 +1,46 @@
-# AimForge 3D Trainer
-
-A lightweight, 3D browser-based First-Person Shooter (FPS) and aim trainer built for performance and simplicity.
-This project uses **Three.js** for rendering immersive 3D environments and a minimal **Flask** backend to serve the application.
-
----
-
-## 🚀 Features
-
-* 🎮 **First-Person Controls**
-  Smooth mouse look using Pointer Lock API with responsive WASD movement.
-
-* 🌐 **3D Environment**
-  Procedurally generated targets in an interactive 3D space.
-
-* 🔫 **Shooting Mechanics**
-  Accurate hit detection using raycasting.
-
-* 📊 **Score Tracking**
-  Real-time UI updates when targets are destroyed.
-
----
-
-## 🛠 Tech Stack
-
-* **Frontend:** HTML5, CSS3, Vanilla JavaScript, Three.js
-* **Backend:** Python, Flask
-
----
-
-## 📁 Project Structure
-
-```
-AIM-GAME/
-├── templates/
-│   └── index.html       # Three.js game logic and UI
-├── app.py               # Flask server configuration
-├── requirements.txt     # Python dependencies
-└── README.md            # Project documentation
-```
-
----
-
-## ⚙️ Prerequisites
-
-* Python 3.x installed on your system
-
----
-
-## 🧩 Installation & Setup
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/lakshaywalia666/aimforge-3d-trainer.git
-cd aim-game
-```
-
-### 2. Create & Activate Virtual Environment (Recommended)
-
-**Windows**
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-**macOS/Linux**
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-Ensure `requirements.txt` includes `Flask`, then run:
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run the Application
-
-```bash
-python app.py
-```
-
-### 5. Play the Game
-
-Open your browser and go to:
-
-```
-http://localhost:5000
-```
-
-or
-
-```
-http://127.0.0.1:5000
-```
-
----
-
-## 🎮 Controls
-
-| Action       | Key/Input    |
-| ------------ | ------------ |
-| Start Game   | Click Screen |
-| Move         | W, A, S, D   |
-| Look Around  | Mouse        |
-| Shoot        | Left Click   |
-| Pause/Unlock | ESC          |
-
----
-
-## 📌 Future Improvements
-
-* 🎯 Multiple difficulty levels
-* 🧠 AI moving targets
-* 📈 Performance tracking & analytics
-* 🌍 Multiplayer support
-
----
-
-## 📄 License
-
-This project is open-source and available under the **MIT License**.
-
----
-
-## 💡 Author
-
-**Lakshay Walia**
-Feel free to contribute, fork, or raise issues!
-
----
-
-⭐ If you like this project, consider giving it a star on GitHub!
+# AimForge 3D Trainer
+
+A browser-based aim trainer built with Three.js and served by Flask. Move through a small 3D arena, aim at targets and track successful hits.
+
+[Try the browser demo](https://lakshaywalia.com/demos/aimforge-3d-trainer/) · [Portfolio](https://lakshaywalia.com/projects.html)
+
+## Run locally
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+python -m pip install -r requirements.txt
+python app.py
+```
+
+Open <http://127.0.0.1:5000>. Alternatively:
+
+```bash
+docker build -t aimforge .
+docker run --rm -p 127.0.0.1:5000:5000 aimforge
+```
+
+Choose captured-mouse controls, or keyboard controls when pointer capture is unavailable. Use WASD to move, arrow keys to aim in keyboard mode, and Space or the Fire button to shoot.
+
+## Scope
+
+This is a small playable demonstration, with raycast hit detection and a session score. It has no accounts, persistent player records, multiplayer service or production deployment platform. The Flask development server is intended for local demonstration.
+
+The repository includes the required Three.js r160 browser modules and their MIT license under `static/lib/three`. No private configuration, databases or player data are needed.
+
+## Project structure
+
+```text
+app.py                    Flask entry point
+templates/index.html      Arena, controls and score
+static/lib/three/         Three.js modules and upstream license
+requirements.txt          Python dependencies
+Dockerfile                Local demo container
+```
+
+## Verified gameplay
+
+The screenshot below was captured from a fresh local Docker build. Keyboard mode opened successfully and firing at a target increased the score from 0 to 1.
+
+![AimForge running locally after a successful target hit](docs/gameplay.jpg)
