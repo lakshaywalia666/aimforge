@@ -3,6 +3,7 @@ import * as THREE from 'three';
 const waveCount = 5;
 const startingHealth = 100;
 const contactRange = 1.45;
+const growlRange = 14;
 const box = new THREE.BoxGeometry();
 const material = color => new THREE.MeshStandardMaterial({ color, roughness: .88 });
 const skin = material(0x8da46b);
@@ -36,7 +37,7 @@ function makeZombie(parent, index) {
     const chest = piece(body, jacket, 1.03, 1.16, .61, 0, 2.63, 0);
     const hips = piece(body, trousers, .87, .45, .53, 0, 1.85, 0);
     piece(body, wornSkin, .44, .24, .53, 0, 3.24, .08);
-    piece(body, wornSkin, .40, .09, .028, .03, 3.48, .40);
+    const mouth = piece(body, boots, .40, .09, .028, .03, 3.48, .40);
     piece(body, boots, .20, .34, .032, -.25, 2.79, .32).rotation.z = -.17;
 
     const hitAreas = [head, chest, hips];
@@ -57,7 +58,7 @@ function makeZombie(parent, index) {
         legs.push(leg);
     }
 
-    const zombie = { root, body, head, arms, legs, hitAreas, hp: 0, nextAttack: 0 };
+    const zombie = { root, body, head, mouth, arms, legs, hitAreas, hp: 0, nextAttack: 0, voiceUntil: 0 };
     for (const mesh of hitAreas) mesh.userData.zombie = zombie;
     return zombie;
 }
@@ -71,6 +72,8 @@ export function createSurvival(scene) {
     const localPoint = new THREE.Vector3();
     let state;
     let nextWaveAt;
+    let nextVoiceAt;
+    let nextRoarAt;
 
     function reset() {
         group.visible = true;
@@ -80,6 +83,8 @@ export function createSurvival(scene) {
         }
         state = { health: startingHealth, wave: 0, waveCount, alive: 0, kills: 0 };
         nextWaveAt = 0;
+        nextVoiceAt = 0;
+        nextRoarAt = 0;
     }
 
     function spawnWave(elapsed) {
@@ -94,18 +99,30 @@ export function createSurvival(scene) {
             enemy.body.rotation.set(0, 0, 0);
             enemy.hp = 2;
             enemy.nextAttack = elapsed;
+            enemy.voiceUntil = elapsed;
             enemy.root.userData.spawnAt = elapsed;
             enemy.root.userData.attempted = false;
             enemy.root.visible = true;
         }
     }
 
+    function vocalize(enemy, kind, elapsed) {
+        enemy.voiceUntil = elapsed + (kind === 'roar' ? 1300 : 1000);
+        nextVoiceAt = elapsed + 2400 + Math.random() * 700;
+        if (kind === 'roar') nextRoarAt = elapsed + 2700;
+        return { kind, position: enemy.root.position };
+    }
+
     function update(delta, elapsed, player, difficulty) {
-        if (nextWaveAt !== null && elapsed >= nextWaveAt) {
+        const waveStarted = nextWaveAt !== null && elapsed >= nextWaveAt;
+        if (waveStarted) {
             spawnWave(elapsed);
             nextWaveAt = null;
         }
         const speed = (2.2 + state.wave * .32) * difficulty.speed;
+        let nearest;
+        let nearestDistance = growlRange;
+        let attacker;
         for (let i = 0; i < state.wave + 1; i++) {
             const enemy = enemies[i];
             if (!enemy.hp) continue;
@@ -113,6 +130,10 @@ export function createSurvival(scene) {
             const dx = player.x - position.x;
             const dz = player.z - position.z;
             const distance = Math.hypot(dx, dz);
+            if (distance < nearestDistance) {
+                nearest = enemy;
+                nearestDistance = distance;
+            }
             const walking = distance > contactRange + .02;
             enemy.root.rotation.y = Math.atan2(dx, dz);
             if (walking) {
@@ -122,6 +143,7 @@ export function createSurvival(scene) {
             } else if (elapsed >= enemy.nextAttack) {
                 state.health = Math.max(0, state.health - Math.round(12 * difficulty.speed));
                 enemy.nextAttack = elapsed + 1150;
+                attacker ??= enemy;
             }
 
             // Give approaching enemies room to spread out near the player.
@@ -140,12 +162,18 @@ export function createSurvival(scene) {
             const gait = elapsed * .008 * difficulty.speed + i;
             enemy.body.position.y = walking ? Math.abs(Math.sin(gait)) * .085 : 0;
             enemy.body.rotation.z = Math.sin(gait) * .045;
+            const voicing = THREE.MathUtils.clamp((enemy.voiceUntil - elapsed) / 240, 0, 1);
+            enemy.mouth.scale.y = .09 + voicing * (.14 + Math.sin(elapsed * .04) * .025);
+            enemy.mouth.position.y = 3.48 - voicing * .045;
             for (let limb = 0; limb < 2; limb++) {
                 const swing = Math.sin(gait + limb * Math.PI);
                 enemy.legs[limb].rotation.x = walking ? swing * .37 : 0;
                 enemy.arms[limb].rotation.x = -1.24 + swing * .20;
             }
         }
+        if (waveStarted) return vocalize(enemies[0], 'roar', elapsed);
+        if (attacker && elapsed >= nextRoarAt) return vocalize(attacker, 'roar', elapsed);
+        if (nearest && elapsed >= nextVoiceAt) return vocalize(nearest, 'growl', elapsed);
     }
 
     function trace(ray) {

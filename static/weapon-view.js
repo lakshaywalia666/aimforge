@@ -43,7 +43,8 @@ function buildModel(key, glowMap) {
     const polymer = metal(0x161b22, .85);
     const glove = metal(0x434e58, .9);
     const walnut = wood ? metal(curvedMagazine ? 0x92532f : 0x6f3823, .7) : null;
-    const trim = weapons[key].sound.sample ? edge : new THREE.MeshBasicMaterial({ color: weapons[key].accent });
+    const originalDesign = !curvedMagazine && !rail && !steelSlide;
+    const trim = originalDesign ? new THREE.MeshBasicMaterial({ color: weapons[key].accent }) : edge;
     const front = -body * .5;
     const muzzle = front - barrel;
 
@@ -54,7 +55,7 @@ function buildModel(key, glowMap) {
     tube(group, edge, key === 'marksman' ? .068 : .054, barrel * .42, .046, muzzle + barrel * .21);
     tube(group, polymer, .031, .008, .046, muzzle - .004);
     for (const side of [-1, 1]) {
-        if (!weapons[key].sound.sample) block(group, trim, .012, .017, body * .56, side * width * .504, .035, front * .21);
+        if (originalDesign) block(group, trim, .012, .017, body * .56, side * width * .504, .035, front * .21);
         if (steelSlide) block(group, walnut, .027, .193, .131, side * width * .37, -.16, body * .26).rotation.x = -.28;
         for (let i = 0; i < 4; i++) {
             block(group, polymer, .014, .046, .019, side * width * .48, .106, .04 + i * .042);

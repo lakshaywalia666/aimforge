@@ -40,7 +40,7 @@ To generate the same static site locally, install the Python dependencies and ru
 | Recoil | 30 seconds | Keep your shots grouped as you compensate for the weapon's recoil pattern. |
 | Zombie Survival | 2 minutes | Clear five waves before the zombies take your health or the timer runs out. |
 
-In **Zombie Survival**, start with 100 HP. Keep moving as the zombies close in, and watch the wave and health indicators. A headshot eliminates a zombie in one shot and earns 150 points. Two body hits eliminate a zombie at 100 points per hit. Difficulty changes zombie speed and damage. Clear all five waves to earn the Last stand medal.
+In **Zombie Survival**, start with 100 HP. Zombies roar at the start of a wave and when attacking, and growl as they approach. The voices get louder nearby and pan with their direction. A headshot eliminates a zombie in one shot and earns 150 points. Two body hits eliminate a zombie at 100 points per hit. Difficulty changes zombie speed and damage. Clear all five waves to earn the Last stand medal.
 
 Use WASD to move. With a captured mouse, aim with the mouse and click to fire. In keyboard mode, aim with the arrow keys and press Space or select **Fire**. In either mobile mode, use the left thumbstick to move, drag the range to aim, and tap **Fire**. The thumbstick and aim or fire controls can be used together. Press Esc on desktop or use the pause button in keyboard or mobile mode.
 
@@ -79,15 +79,22 @@ AimForge stores completed sessions, personal records, milestones, and settings i
 
 The repository includes the required Three.js r160 browser modules and their MIT license under `static/lib/three`. No private configuration, databases or player data are needed.
 
-## Gunshot recording credits
+## Sound credits
 
-The three named firearms use recordings published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). AimForge bundles their MP3 previews and fades the tails during playback for rapid fire.
+Every loadout uses recorded firearm audio. The five fictional weapons use recordings chosen for their weapon class. The new gunshot and zombie clips were trimmed, mixed to mono, and level-matched from the source previews. All sources are published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 | Weapon | Recording |
 | --- | --- |
+| Forge Trainer | [.22 LR pistol by ONgiaunbg](https://freesound.org/people/ONgiaunbg/sounds/687397/) |
+| Viper P9 | [Beretta 9 mm by KNO SFX](https://freesound.org/people/KNO%20SFX/sounds/157970/) |
+| Wraith SMG | [Suppressed submachine gun by Kodack](https://freesound.org/people/Kodack/sounds/257364/) |
+| Atlas C4 | [AR-15 rifle by michorvath](https://freesound.org/people/michorvath/sounds/427596/) |
+| Longshot DMR | [Sniper Shot Echoey by qubodup](https://freesound.org/people/qubodup/sounds/815476/) |
 | AK-47 | [AK47 Shot by LeMudCrab](https://freesound.org/people/LeMudCrab/sounds/163457/) |
 | Colt M4A1 SOCOM | [Colt M4A1 SOCOM by areniporgen](https://freesound.org/people/areniporgen/sounds/737569/) |
 | Colt 1911 | [Pistol Shot by LeMudCrab](https://freesound.org/people/LeMudCrab/sounds/163456/) |
+
+Zombie voices use [zombie roar by Thanra](https://freesound.org/people/Thanra/sounds/245223/) and [Zombie Growl by finnskog](https://freesound.org/people/finnskog/sounds/787943/).
 
 ## Project structure
 
@@ -103,7 +110,7 @@ static/weapon-view.js     3D weapon models and firing animations
 static/training.js        Drill catalog, saved sessions, and progression
 static/reports.js         Session reports, shot maps, and journal
 static/audio.js           Recorded and procedural sounds
-static/sounds/            CC0 firearm recordings
+static/sounds/            CC0 firearm and zombie sounds
 static/game.css           Lobby and in-game HUD styling
 static/lib/three/         Three.js modules and upstream license
 requirements.txt          Python dependencies

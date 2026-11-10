@@ -1,9 +1,29 @@
+const zombieRecordings = {
+    roar: new URL('./sounds/roar.wav', import.meta.url).href,
+    growl: new URL('./sounds/growl.wav', import.meta.url).href,
+};
+
 export function createAudio(preferences) {
     let context;
     let noise;
+    let zombieVoice;
     const samples = new Map();
 
-    function ready(shotSound) {
+    function loadSample(url) {
+        if (!url || samples.has(url)) return;
+        const sample = {};
+        samples.set(url, sample);
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('Recording unavailable');
+                return response.arrayBuffer();
+            })
+            .then(data => context.decodeAudioData(data))
+            .then(buffer => { sample.buffer = buffer; })
+            .catch(() => samples.delete(url));
+    }
+
+    function ready(shotSound, survival) {
         if (!preferences.sound || !window.AudioContext) return;
         try {
             context ??= new AudioContext();
@@ -13,22 +33,50 @@ export function createAudio(preferences) {
                 for (let i = 0; i < channel.length; i++) channel[i] = Math.random() * 2 - 1;
             }
             context.resume().catch(() => {});
-            const url = shotSound?.sample;
-            if (url && !samples.has(url)) {
-                const sample = {};
-                samples.set(url, sample);
-                fetch(url)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Recording unavailable');
-                        return response.arrayBuffer();
-                    })
-                    .then(data => context.decodeAudioData(data))
-                    .then(buffer => { sample.buffer = buffer; })
-                    .catch(() => samples.delete(url));
+            loadSample(shotSound?.sample);
+            if (survival) {
+                loadSample(zombieRecordings.roar);
+                loadSample(zombieRecordings.growl);
             }
         } catch {
             // Effects are optional when audio is unavailable.
         }
+    }
+
+    function stopZombie() {
+        if (!zombieVoice) return;
+        zombieVoice.stop();
+        zombieVoice = undefined;
+    }
+
+    function playZombie(voice, camera) {
+        if (!preferences.sound || preferences.volume <= 0 || context?.state !== 'running') return;
+        const recorded = samples.get(zombieRecordings[voice.kind])?.buffer;
+        if (!recorded) return;
+        stopZombie();
+        const source = context.createBufferSource();
+        source.buffer = recorded;
+        source.playbackRate.value = .94 + Math.random() * .12;
+        const dx = voice.position.x - camera.position.x;
+        const dz = voice.position.z - camera.position.z;
+        const distance = Math.hypot(dx, dz);
+        const gain = context.createGain();
+        const strength = voice.kind === 'roar' ? .57 : .38;
+        gain.gain.value = strength * preferences.volume / (1 + distance * .055);
+        source.connect(gain);
+        if (context.createStereoPanner) {
+            const pan = context.createStereoPanner();
+            const yaw = camera.rotation.y;
+            pan.pan.value = .82 * (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, distance);
+            gain.connect(pan).connect(context.destination);
+        } else {
+            gain.connect(context.destination);
+        }
+        source.onended = () => {
+            if (zombieVoice === source) zombieVoice = undefined;
+        };
+        zombieVoice = source;
+        source.start();
     }
 
     function tone(start, end, duration, volume, type = 'sine', delay = 0) {
@@ -99,5 +147,5 @@ export function createAudio(preferences) {
         }
     }
 
-    return { ready, play };
+    return { ready, play, playZombie, stopZombie };
 }

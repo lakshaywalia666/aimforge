@@ -146,6 +146,10 @@ function init() {
         refreshProgress();
     }
 
+    function prepareAudio() {
+        audio.ready(weapons[preferences.loadout].sound, modes[selected].survival);
+    }
+
     showLoadout();
     showGuide();
     refreshProgress();
@@ -227,7 +231,7 @@ function init() {
         });
     }
     applyPreferences();
-    settingsDialog.addEventListener('close', () => audio.ready(weapons[preferences.loadout].sound));
+    settingsDialog.addEventListener('close', prepareAudio);
 
     const fullscreenButton = byId('fullscreen-button');
     fullscreenButton.hidden = !document.fullscreenEnabled;
@@ -337,6 +341,7 @@ function init() {
         resultsPanel.hidden = state !== 'results';
         document.body.classList.toggle('in-range', state !== 'lobby');
         for (const item of background) item.inert = state !== 'lobby';
+        if (wasRunning && !running && round?.survival) audio.stopZombie();
         if (running !== wasRunning && round?.control === 'gyro') {
             if (!running) gyroscope.disconnect();
             else if (round.motionAccess === 'granted') gyroscope.connect();
@@ -421,6 +426,20 @@ function init() {
         survivalHealth.textContent = `${health} HP`;
         survivalHealthBar.value = health;
         survivalHud.toggleAttribute('data-low', health <= 30);
+    }
+
+    function updateSurvival(delta) {
+        const survival = round.survival;
+        const { health, wave } = survival.state;
+        const voice = survival.update(delta, round.elapsed, camera.position, round.difficulty);
+        if (survival.state.health !== health || survival.state.wave !== wave) updateSurvivalHud();
+        if (survival.state.health < health) {
+            round.damageUntil = round.elapsed + 260;
+            audio.play('damage');
+        }
+        survivalDamage.hidden = !preferences.motion || round.elapsed >= round.damageUntil;
+        if (!survival.state.health) finishRound();
+        else if (voice) audio.playZombie(voice, camera);
     }
 
     function spawnTarget(target, point, elapsed) {
@@ -581,7 +600,7 @@ function init() {
             const source = state;
             pendingMotion = true;
             const permission = requestMotionAccess();
-            audio.ready(weapons[preferences.loadout].sound);
+            prepareAudio();
             const access = await permission;
             pendingMotion = false;
             if (state === source && preferences.control === 'gyro') {
@@ -590,7 +609,7 @@ function init() {
             }
             return;
         }
-        audio.ready(weapons[preferences.loadout].sound);
+        prepareAudio();
         if (control !== 'mouse') {
             if (action === 'resume') resume(control);
             else startRound(control);
@@ -977,10 +996,7 @@ function init() {
                 setState('active');
                 for (let i = 0; i < targets.length; i++) targets[i].visible = i < round.mode.count;
                 phaseEnds = now + round.mode.duration * 1000;
-                if (round.survival) {
-                    round.survival.update(0, 0, camera.position, round.difficulty);
-                    updateSurvivalHud();
-                }
+                if (round.survival) updateSurvival(0);
                 audio.play('start');
             } else {
                 const label = String(Math.ceil(remaining / 1000));
@@ -997,21 +1013,8 @@ function init() {
             round.elapsed = elapsedAt(now);
             updateTimer(remaining);
             updateTargets(round.elapsed);
-            if (round.survival) {
-                const survival = round.survival;
-                const { health, wave } = survival.state;
-                survival.update(delta, round.elapsed, camera.position, round.difficulty);
-                if (survival.state.health !== health || survival.state.wave !== wave) updateSurvivalHud();
-                if (survival.state.health < health) {
-                    round.damageUntil = round.elapsed + 260;
-                    audio.play('damage');
-                }
-                survivalDamage.hidden = !preferences.motion || round.elapsed >= round.damageUntil;
-                if (!survival.state.health) {
-                    finishRound();
-                    return;
-                }
-            }
+            if (round.survival) updateSurvival(delta);
+            if (state !== 'active') return;
             reloadProgress = advanceReload(round.elapsed);
             if (round.automatic && heldFire.size) shoot();
             if (state !== 'active') return;
