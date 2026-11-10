@@ -650,6 +650,34 @@ input[type="color"] { width: 38px; height: 29px; padding: 2px; border: 1px solid
 .armory-specs b { font-size: .78rem; }
 .armory-specs small { margin-top: 3px; color: var(--muted); font-size: .55rem; }
 .combat-actions { display: grid; justify-items: end; gap: 7px; margin-left: auto; }
+.stage[data-touch] #combat-hint { display: none; }
+.mobile-movement { display: grid; flex: none; justify-items: center; gap: 5px; }
+.mobile-movement small { color: var(--ink); font: 650 .61rem var(--mono); letter-spacing: .09em; text-shadow: 0 1px 6px #000; }
+.movement-stick {
+    position: relative;
+    width: clamp(72px, 25vmin, 106px);
+    aspect-ratio: 1;
+    border: 1px solid #b3b7c484;
+    border-radius: 50%;
+    background: radial-gradient(circle, #1b1d2288 49%, #888d9e55 50%, #1b1d2299 52%);
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.movement-knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 43%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%) translate(var(--stick-x, 0px), var(--stick-y, 0px));
+    border: 1px solid #e0dfecb9;
+    border-radius: 50%;
+    background: #787d8cc7;
+    box-shadow: 0 2px 8px #0008;
+    pointer-events: none;
+}
 .gyro-tools { display: flex; align-items: center; justify-content: flex-end; gap: 6px; max-width: min(210px, 62vw); }
 #gyro-status { padding: 6px 8px; border-radius: 6px; background: #17191eea; color: var(--muted); font: .63rem/1.35 var(--mono); }
 .gyro-tools button { min-height: 44px; flex: none; }

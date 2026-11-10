@@ -17,50 +17,54 @@ export function createGyroscope(onStatus) {
     const viewAngles = new Euler();
     const current = new Quaternion();
     const previous = new Quaternion();
+    const neutralInverse = new Quaternion();
     const screenRotation = new Quaternion();
     const change = new Quaternion();
     const pending = new Vector2();
     const step = new Vector2();
     let previousScreenAngle = null;
-    let receivedReading = false;
+    let previousHadHeading = false;
     let timeout;
 
-    function clearMovement() {
+    function recenter() {
+        neutralInverse.copy(current).invert();
+        viewAngles.set(0, 0, 0, 'YXZ');
         pending.set(0, 0);
     }
 
     function onReading({ alpha, beta, gamma }) {
-        if (![alpha, beta, gamma].every(Number.isFinite)) return;
+        if (!Number.isFinite(beta) || !Number.isFinite(gamma)) return;
+        const hasHeading = Number.isFinite(alpha);
         const screenAngle = window.screen.orientation?.angle ?? window.orientation ?? 0;
         const radians = MathUtils.degToRad;
-        // Express the sensor rotation in screen coordinates so landscape aiming uses the same axes.
-        deviceAngles.set(radians(beta), radians(gamma), radians(alpha), 'ZXY');
+        // Match the phone's screen axes in portrait and landscape before measuring tilt.
+        deviceAngles.set(radians(beta), radians(gamma), hasHeading ? radians(alpha) : 0, 'ZXY');
         screenRotation.setFromAxisAngle(screenAxis, -radians(screenAngle));
         current.setFromEuler(deviceAngles).multiply(screenRotation);
 
-        if (previousScreenAngle === screenAngle && previous.angleTo(current) < Math.PI / 2) {
-            change.copy(previous).invert().multiply(current);
+        if (previousScreenAngle === screenAngle && previousHadHeading === hasHeading && previous.angleTo(current) < Math.PI / 2) {
+            const { x: previousPitch, y: previousYaw, z: previousRoll } = viewAngles;
+            change.copy(neutralInverse).multiply(current);
             viewAngles.setFromQuaternion(change, 'YXZ');
-            pending.x += viewAngles.y;
-            pending.y += viewAngles.x;
+            // Both turning and dipping a side of the phone steer left and right.
+            const turn = viewAngles.y - previousYaw + viewAngles.z - previousRoll;
+            pending.x += MathUtils.euclideanModulo(turn + Math.PI, Math.PI * 2) - Math.PI;
+            pending.y += viewAngles.x - previousPitch;
         } else {
-            clearMovement();
-        }
-        previous.copy(current);
-        previousScreenAngle = screenAngle;
-        if (!receivedReading) {
-            receivedReading = true;
+            recenter();
             window.clearTimeout(timeout);
             onStatus('ready');
         }
+        previous.copy(current);
+        previousScreenAngle = screenAngle;
+        previousHadHeading = hasHeading;
     }
 
     function disconnect() {
         window.removeEventListener('deviceorientation', onReading);
         window.clearTimeout(timeout);
         previousScreenAngle = null;
-        receivedReading = false;
-        clearMovement();
+        pending.set(0, 0);
     }
 
     function connect() {
@@ -74,9 +78,9 @@ export function createGyroscope(onStatus) {
         // Apply new movement over a few frames, retaining the full turn as the smoothing catches up.
         step.copy(pending).multiplyScalar(1 - Math.exp(-36 * delta));
         pending.sub(step);
-        if (pending.lengthSq() < 1e-12) clearMovement();
+        if (pending.lengthSq() < 1e-12) pending.set(0, 0);
         return step;
     }
 
-    return { connect, disconnect, clearMovement, read };
+    return { connect, disconnect, recenter, read };
 }

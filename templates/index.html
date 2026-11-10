@@ -74,8 +74,8 @@
                         <select id="control-select">
                             <option value="mouse">Mouse + keyboard</option>
                             <option value="keyboard">Keyboard only</option>
-                            <option value="touch">Touch controls</option>
-                            <option value="gyro">Touch + gyroscope</option>
+                            <option value="touch">Mobile · Touch</option>
+                            <option value="gyro">Mobile · Gyroscope</option>
                         </select>
                     </label>
                 </div>
@@ -119,6 +119,12 @@
                         <div id="countdown" class="countdown" role="status" hidden></div>
                         <div class="combat-footer">
                             <span id="combat-hint"></span>
+                            <div class="mobile-movement" id="mobile-movement" hidden>
+                                <div class="movement-stick" id="movement-stick" role="group" aria-label="Drag the thumbstick to move">
+                                    <span class="movement-knob" id="movement-knob" aria-hidden="true"></span>
+                                </div>
+                                <small>MOVE</small>
+                            </div>
                             <span class="performance" id="performance"></span>
                             <div class="combat-actions">
                                 <div class="gyro-tools" id="gyro-tools" hidden>
@@ -233,7 +239,7 @@
             <output id="sensitivity-value" for="sensitivity">1.0×</output>
         </label>
         <input aria-label="Mouse sensitivity" id="sensitivity" type="range" min="0.2" max="2.5" step="0.1" value="1">
-        <label class="setting-row" for="gyro-sensitivity"><span><strong>Gyroscope sensitivity</strong><small>Applies to Touch + gyroscope</small></span><output id="gyro-sensitivity-value" for="gyro-sensitivity"></output></label>
+        <label class="setting-row" for="gyro-sensitivity"><span><strong>Gyroscope sensitivity</strong><small>Applies to Mobile · Gyroscope</small></span><output id="gyro-sensitivity-value" for="gyro-sensitivity"></output></label>
         <input id="gyro-sensitivity" type="range" min="0.2" max="3" step="0.1" value="1">
         <label class="setting-row" for="fov"><span><strong>Field of view</strong><small>Vertical angle in degrees</small></span><output id="fov-value" for="fov"></output></label>
         <input id="fov" type="range" min="50" max="100" step="1">

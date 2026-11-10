@@ -18,8 +18,8 @@ const positions = [
 const guides = {
     mouse: [['W', 'A', 'S', 'D', 'Move'], ['Mouse', 'Look'], ['Click', 'Fire'], ['Q', 'Sights'], ['R', 'Reload'], ['Esc', 'Pause']],
     keyboard: [['W', 'A', 'S', 'D', 'Move'], ['↑', '↓', '←', '→', 'Look'], ['Space', 'Fire'], ['Q', 'Sights'], ['R', 'Reload'], ['Esc', 'Pause']],
-    touch: [['Drag', 'Look'], ['Aim', 'Sights'], ['Fire', 'Shoot'], ['Reload', 'Swap magazine']],
-    gyro: [['Tilt', 'Look'], ['Drag', 'Adjust aim'], ['Recenter', 'Reset aim'], ['Fire', 'Shoot']],
+    touch: [['Stick', 'Move'], ['Drag', 'Look'], ['Aim', 'Sights'], ['Fire', 'Shoot']],
+    gyro: [['Stick', 'Move'], ['Tilt / Drag', 'Look'], ['Recenter', 'Reset aim'], ['Fire', 'Shoot']],
 };
 const controlHints = {
     mouse: { look: 'WASD move · Mouse look', trigger: 'Click', aim: 'Q / Right click sights' },
@@ -291,6 +291,9 @@ function init() {
     const gyroTools = byId('gyro-tools');
     const gyroStatus = byId('gyro-status');
     const recenterButton = byId('recenter-button');
+    const mobileMovement = byId('mobile-movement');
+    const movementStick = byId('movement-stick');
+    const movementKnob = byId('movement-knob');
     const gyroscope = createGyroscope(showGyroStatus);
     const weaponReadout = byId('weapon-readout');
     const weaponStatus = byId('weapon-status');
@@ -301,6 +304,9 @@ function init() {
     const keys = new Set();
     const heldFire = new Set();
     const walk = new Vector2();
+    const stickInput = new Vector2();
+    let stickPointer = null;
+    let gyroPitch = 0;
     let drag = null;
     let state = 'lobby';
     let pendingLock = null;
@@ -330,8 +336,10 @@ function init() {
     }
 
     function showGyroStatus(status) {
-        gyroStatus.textContent = gyroMessages[status];
+        const message = gyroMessages[status];
+        if (gyroStatus.textContent !== message) gyroStatus.textContent = message;
         recenterButton.hidden = status !== 'ready';
+        if (status === 'ready') gyroPitch = camera.rotation.x;
     }
 
     function setControlUI() {
@@ -339,6 +347,7 @@ function init() {
         const touch = isTouchControl(control);
         stage.dataset.control = control;
         stage.toggleAttribute('data-touch', touch);
+        mobileMovement.hidden = !touch;
         const guide = controlHints[control];
         const trigger = automatic ? `Hold ${guide.trigger} to fire` : `${guide.trigger} to fire`;
         const reload = !touch && weapon.magazine != null ? ' · R reload' : '';
@@ -456,6 +465,7 @@ function init() {
     function clearInput() {
         keys.clear();
         heldFire.clear();
+        resetStick();
         if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id);
         drag = null;
     }
@@ -759,6 +769,7 @@ function init() {
     function aim(yaw, pitch) {
         camera.rotation.y += yaw;
         camera.rotation.x = MathUtils.clamp(camera.rotation.x + pitch, -1.22, 1.22);
+        gyroPitch = camera.rotation.x;
     }
 
     function aimWithKeys(step) {
@@ -766,6 +777,45 @@ function init() {
         const yaw = Number(keys.has('ArrowLeft')) - Number(keys.has('ArrowRight'));
         const pitch = Number(keys.has('ArrowUp')) - Number(keys.has('ArrowDown'));
         if (yaw || pitch) aim(yaw * step, pitch * step);
+    }
+
+    function updateStick(event) {
+        const bounds = movementStick.getBoundingClientRect();
+        const travel = bounds.width * .28;
+        const x = (event.clientX - bounds.left - bounds.width / 2) / travel;
+        const y = (bounds.top + bounds.height / 2 - event.clientY) / travel;
+        stickInput.set(x, y).clampLength(0, 1);
+        movementKnob.style.setProperty('--stick-x', `${stickInput.x * travel}px`);
+        movementKnob.style.setProperty('--stick-y', `${-stickInput.y * travel}px`);
+        const magnitude = stickInput.length();
+        if (magnitude <= .12) stickInput.set(0, 0);
+        else stickInput.multiplyScalar((magnitude - .12) / (.88 * magnitude));
+    }
+
+    function resetStick() {
+        const pointer = stickPointer;
+        stickPointer = null;
+        stickInput.set(0, 0);
+        movementKnob.style.removeProperty('--stick-x');
+        movementKnob.style.removeProperty('--stick-y');
+        if (pointer != null && movementStick.hasPointerCapture(pointer)) movementStick.releasePointerCapture(pointer);
+    }
+
+    movementStick.addEventListener('pointerdown', (event) => {
+        if ((state !== 'active' && state !== 'countdown') || !isTouchControl(round.control)) return;
+        if (event.button !== 0 || stickPointer != null) return;
+        event.preventDefault();
+        stickPointer = event.pointerId;
+        movementStick.setPointerCapture(stickPointer);
+        updateStick(event);
+    });
+    movementStick.addEventListener('pointermove', (event) => {
+        if (event.pointerId === stickPointer) updateStick(event);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+        movementStick.addEventListener(type, (event) => {
+            if (event.pointerId === stickPointer) resetStick();
+        });
     }
 
     document.addEventListener('keydown', (event) => {
@@ -847,15 +897,16 @@ function init() {
     aimButton.addEventListener('click', toggleAim);
     reloadButton.addEventListener('click', reload);
     recenterButton.addEventListener('click', () => {
-        gyroscope.clearMovement();
+        gyroscope.recenter();
         camera.rotation.set(0, 0, 0);
+        gyroPitch = 0;
     });
 
     function move(delta) {
         walk.set(Number(keys.has('KeyD')) - Number(keys.has('KeyA')),
-            Number(keys.has('KeyW')) - Number(keys.has('KeyS')));
+            Number(keys.has('KeyW')) - Number(keys.has('KeyS'))).add(stickInput);
         if (!walk.lengthSq()) return;
-        walk.normalize().multiplyScalar(delta * 8);
+        walk.multiplyScalar(delta * 8 / Math.max(1, walk.length()));
         camera.updateMatrix();
         controls.moveRight(walk.x);
         controls.moveForward(walk.y);
@@ -872,7 +923,12 @@ function init() {
         if (round.control === 'gyro') {
             const motion = gyroscope.read(realDelta);
             const sensitivity = preferences.gyroSensitivity / camera.zoom;
-            aim(motion.x * sensitivity, motion.y * sensitivity);
+            if (motion.lengthSq()) {
+                camera.rotation.y += motion.x * sensitivity;
+                // Keep the full tilt so leveling the phone also recovers from the camera's pitch limit.
+                gyroPitch += motion.y * sensitivity;
+                camera.rotation.x = MathUtils.clamp(gyroPitch, -1.22, 1.22);
+            }
         }
         const remaining = Math.max(0, phaseEnds - now);
         let reloadProgress = null;

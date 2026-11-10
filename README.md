@@ -39,9 +39,9 @@ To generate the same static site locally, install the Python dependencies and ru
 | Quick peek | 30 seconds | Hit targets before they disappear. |
 | Recoil | 30 seconds | Keep your shots grouped as you compensate for the weapon's recoil pattern. |
 
-Use WASD to move. With a captured mouse, aim with the mouse and click to fire. In keyboard mode, aim with the arrow keys and press Space or select **Fire**. With touch controls, drag the range to aim and tap **Fire**. Press Esc on desktop or use the pause button in keyboard or touch mode.
+Use WASD to move. With a captured mouse, aim with the mouse and click to fire. In keyboard mode, aim with the arrow keys and press Space or select **Fire**. In either mobile mode, use the left thumbstick to move, drag the range to aim, and tap **Fire**. The thumbstick and aim or fire controls can be used together. Press Esc on desktop or use the pause button in keyboard or mobile mode.
 
-On mobile, select **Touch + gyroscope**, start a drill, and allow motion access if your browser asks. Turn or tilt the phone to aim, and drag for larger adjustments. Tap **Recenter** to face straight down the range again. **Settings** has a separate gyroscope sensitivity slider. Drag aiming is available throughout the drill, including on browsers that do not provide motion readings.
+For motion aiming, select **Mobile · Gyroscope**, hold your phone comfortably, and start a drill. Allow motion access if your browser asks. Tilt forward or back to aim vertically. Tilt to either side or turn the phone to aim horizontally. Tap **Recenter** to set your current phone position as the reference and face down the range. Adjust **Gyroscope sensitivity** in Settings. Drag aiming remains available throughout the drill.
 
 A hit earns 100 points and a bullseye earns 150. Select **Armory** to equip a weapon. Each has its own firing cadence, sights, sound, and model.
 
