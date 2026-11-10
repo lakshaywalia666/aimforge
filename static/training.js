@@ -48,8 +48,9 @@ export function saveValue(key, value) {
 export function loadPreferences(coarsePointer, reducedMotion) {
     const stored = readValue('preferences');
     return {
-        control: choose(stored?.control, { mouse: 1, keyboard: 1, touch: 1 }, coarsePointer ? 'touch' : 'mouse'),
+        control: choose(stored?.control, { mouse: 1, keyboard: 1, touch: 1, gyro: 1 }, coarsePointer ? 'touch' : 'mouse'),
         sensitivity: number(stored?.sensitivity, .2, 2.5, 1),
+        gyroSensitivity: number(stored?.gyroSensitivity, .2, 3, 1),
         sound: stored?.sound !== false,
         volume: number(stored?.volume, 0, 1, .6),
         difficulty: choose(stored?.difficulty, difficulties, 'standard'),

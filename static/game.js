@@ -8,6 +8,7 @@ import {
 import { renderProgress, renderJournal, renderReport } from './reports.js';
 import { createAudio } from './audio.js';
 import { defaultLoadout, weapons } from './weapons.js';
+import { createGyroscope, requestMotionAccess } from './gyroscope.js';
 
 const positions = [
     [[-4.8, 3.65, -14], [-7.7, 5.5, -20], [-5.6, 2.45, -11], [-3.9, 6.15, -19]],
@@ -18,12 +19,21 @@ const guides = {
     mouse: [['W', 'A', 'S', 'D', 'Move'], ['Mouse', 'Look'], ['Click', 'Fire'], ['Q', 'Sights'], ['R', 'Reload'], ['Esc', 'Pause']],
     keyboard: [['W', 'A', 'S', 'D', 'Move'], ['↑', '↓', '←', '→', 'Look'], ['Space', 'Fire'], ['Q', 'Sights'], ['R', 'Reload'], ['Esc', 'Pause']],
     touch: [['Drag', 'Look'], ['Aim', 'Sights'], ['Fire', 'Shoot'], ['Reload', 'Swap magazine']],
+    gyro: [['Tilt', 'Look'], ['Drag', 'Adjust aim'], ['Recenter', 'Reset aim'], ['Fire', 'Shoot']],
 };
 const controlHints = {
     mouse: { look: 'WASD move · Mouse look', trigger: 'Click', aim: 'Q / Right click sights' },
     keyboard: { look: 'WASD move · Arrows look', trigger: 'Space', aim: 'Q sights' },
     touch: { look: 'Drag to look', trigger: 'Fire', aim: 'Aim for sights' },
+    gyro: { look: 'Tilt or drag to look', trigger: 'Fire', aim: 'Aim for sights' },
 };
+const gyroMessages = {
+    waiting: 'Move your phone to calibrate',
+    ready: 'Gyroscope on',
+    denied: 'Motion access denied. Drag to aim.',
+    unavailable: 'Motion unavailable. Drag to aim.',
+};
+const isTouchControl = control => control === 'touch' || control === 'gyro';
 const trainerRecoil = { pitch: .014, yaw: .005, climb: .0008 };
 const aimKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
@@ -178,6 +188,7 @@ function init() {
 
     const sliders = [
         ['sensitivity', 'sensitivity', value => `${value.toFixed(1)}×`],
+        ['gyro-sensitivity', 'gyroSensitivity', value => `${value.toFixed(1)}×`],
         ['fov', 'fov', value => `${value}°`],
         ['target-size', 'targetSize', value => `${value.toFixed(1)}×`],
         ['crosshair-size', 'crosshairSize', value => `${value} px`],
@@ -277,6 +288,10 @@ function init() {
     const fireButton = byId('fire-button');
     const aimButton = byId('aim-button');
     const reloadButton = byId('reload-button');
+    const gyroTools = byId('gyro-tools');
+    const gyroStatus = byId('gyro-status');
+    const recenterButton = byId('recenter-button');
+    const gyroscope = createGyroscope(showGyroStatus);
     const weaponReadout = byId('weapon-readout');
     const weaponStatus = byId('weapon-status');
     const ammoCurrent = byId('ammo-current');
@@ -289,6 +304,7 @@ function init() {
     let drag = null;
     let state = 'lobby';
     let pendingLock = null;
+    let pendingMotion = false;
     let pausedPhase;
     let phaseEnds;
     let round;
@@ -297,27 +313,42 @@ function init() {
     stage.tabIndex = -1;
 
     function setState(next) {
+        const wasRunning = !combat.hidden;
+        const running = next === 'countdown' || next === 'active';
         state = next;
         stage.dataset.state = state;
-        combat.hidden = !['countdown', 'active'].includes(state);
+        combat.hidden = !running;
         pausePanel.hidden = state !== 'paused';
         resultsPanel.hidden = state !== 'results';
         document.body.classList.toggle('in-range', state !== 'lobby');
         for (const item of background) item.inert = state !== 'lobby';
+        if (running !== wasRunning && round?.control === 'gyro') {
+            if (!running) gyroscope.disconnect();
+            else if (round.motionAccess === 'granted') gyroscope.connect();
+            else showGyroStatus(round.motionAccess);
+        }
+    }
+
+    function showGyroStatus(status) {
+        gyroStatus.textContent = gyroMessages[status];
+        recenterButton.hidden = status !== 'ready';
     }
 
     function setControlUI() {
         const { control, automatic, weapon } = round;
+        const touch = isTouchControl(control);
         stage.dataset.control = control;
+        stage.toggleAttribute('data-touch', touch);
         const guide = controlHints[control];
         const trigger = automatic ? `Hold ${guide.trigger} to fire` : `${guide.trigger} to fire`;
-        const reload = control !== 'touch' && weapon.magazine != null ? ' · R reload' : '';
-        const pauseHint = control === 'touch' ? '' : ' · Esc pause';
+        const reload = !touch && weapon.magazine != null ? ' · R reload' : '';
+        const pauseHint = touch ? '' : ' · Esc pause';
         byId('combat-hint').textContent = `${guide.look} · ${trigger} · ${guide.aim}${reload}${pauseHint}`;
         pauseButton.hidden = control === 'mouse';
         fireButton.hidden = control === 'mouse';
         aimButton.hidden = control === 'mouse';
         reloadButton.hidden = control === 'mouse' || weapon.magazine == null;
+        gyroTools.hidden = control !== 'gyro';
         fireButton.textContent = automatic ? 'Hold Fire' : 'Fire';
     }
 
@@ -371,14 +402,14 @@ function init() {
         target.userData.expiresAt = elapsed + round.difficulty.exposure;
     }
 
-    function startRound(control) {
+    function startRound(control, motionAccess = 'unavailable') {
         const mode = modes[selected];
         const difficulty = difficulties[preferences.difficulty];
         const loadout = preferences.loadout;
         const weapon = weapons[loadout];
         round = {
             id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            key: selected, mode, control, difficulty, difficultyKey: preferences.difficulty,
+            key: selected, mode, control, motionAccess, difficulty, difficultyKey: preferences.difficulty,
             targetSize: preferences.targetSize, environment: preferences.environment,
             radius: mode.radius * difficulty.radius * preferences.targetSize,
             score: 0, shots: 0, hits: 0, bullseyes: 0, streak: 0, bestStreak: 0, escaped: 0,
@@ -505,9 +536,22 @@ function init() {
         }
     }
 
-    function requestPlay(action, control) {
+    async function requestPlay(action, control) {
+        if (pendingLock || pendingMotion) return;
+        if (action === 'start' && control === 'gyro') {
+            const source = state;
+            pendingMotion = true;
+            const permission = requestMotionAccess();
+            audio.ready();
+            const access = await permission;
+            pendingMotion = false;
+            if (state === source && preferences.control === 'gyro') {
+                startRound(control, access);
+                if (document.hidden) pause();
+            }
+            return;
+        }
         audio.ready();
-        if (pendingLock) return;
         if (control !== 'mouse') {
             if (action === 'resume') resume(control);
             else startRound(control);
@@ -766,7 +810,7 @@ function init() {
             return;
         }
         if (event.button !== 0) return;
-        if (round.control !== 'touch') {
+        if (!isTouchControl(round.control)) {
             heldFire.add(event.pointerId);
             shoot();
         } else if (!drag) {
@@ -802,6 +846,10 @@ function init() {
     fireButton.addEventListener('lostpointercapture', releaseFire);
     aimButton.addEventListener('click', toggleAim);
     reloadButton.addEventListener('click', reload);
+    recenterButton.addEventListener('click', () => {
+        gyroscope.clearMovement();
+        camera.rotation.set(0, 0, 0);
+    });
 
     function move(delta) {
         walk.set(Number(keys.has('KeyD')) - Number(keys.has('KeyA')),
@@ -821,6 +869,11 @@ function init() {
         const delta = Math.min(.045, realDelta);
         lastFrame = now;
         if (state !== 'active' && state !== 'countdown') return;
+        if (round.control === 'gyro') {
+            const motion = gyroscope.read(realDelta);
+            const sensitivity = preferences.gyroSensitivity / camera.zoom;
+            aim(motion.x * sensitivity, motion.y * sensitivity);
+        }
         const remaining = Math.max(0, phaseEnds - now);
         let reloadProgress = null;
         if (state === 'countdown') {

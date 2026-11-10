@@ -75,6 +75,7 @@
                             <option value="mouse">Mouse + keyboard</option>
                             <option value="keyboard">Keyboard only</option>
                             <option value="touch">Touch controls</option>
+                            <option value="gyro">Touch + gyroscope</option>
                         </select>
                     </label>
                 </div>
@@ -120,6 +121,10 @@
                             <span id="combat-hint"></span>
                             <span class="performance" id="performance"></span>
                             <div class="combat-actions">
+                                <div class="gyro-tools" id="gyro-tools" hidden>
+                                    <span id="gyro-status" role="status"></span>
+                                    <button class="subtle-button" id="recenter-button" type="button" hidden>Recenter</button>
+                                </div>
                                 <div class="weapon-readout" id="weapon-readout">
                                     <div><strong id="combat-weapon">Forge Trainer</strong><span id="weapon-status" role="status"></span></div>
                                     <div class="ammo"><strong id="ammo-current">∞</strong><span id="ammo-capacity"></span></div>
@@ -228,6 +233,8 @@
             <output id="sensitivity-value" for="sensitivity">1.0×</output>
         </label>
         <input aria-label="Mouse sensitivity" id="sensitivity" type="range" min="0.2" max="2.5" step="0.1" value="1">
+        <label class="setting-row" for="gyro-sensitivity"><span><strong>Gyroscope sensitivity</strong><small>Applies to Touch + gyroscope</small></span><output id="gyro-sensitivity-value" for="gyro-sensitivity"></output></label>
+        <input id="gyro-sensitivity" type="range" min="0.2" max="3" step="0.1" value="1">
         <label class="setting-row" for="fov"><span><strong>Field of view</strong><small>Vertical angle in degrees</small></span><output id="fov-value" for="fov"></output></label>
         <input id="fov" type="range" min="50" max="100" step="1">
         <label class="setting-row" for="target-size"><span><strong>Target size</strong><small>Applies to your next drill</small></span><output id="target-size-value" for="target-size"></output></label>

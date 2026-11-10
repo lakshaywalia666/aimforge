@@ -41,6 +41,8 @@ To generate the same static site locally, install the Python dependencies and ru
 
 Use WASD to move. With a captured mouse, aim with the mouse and click to fire. In keyboard mode, aim with the arrow keys and press Space or select **Fire**. With touch controls, drag the range to aim and tap **Fire**. Press Esc on desktop or use the pause button in keyboard or touch mode.
 
+On mobile, select **Touch + gyroscope**, start a drill, and allow motion access if your browser asks. Turn or tilt the phone to aim, and drag for larger adjustments. Tap **Recenter** to face straight down the range again. **Settings** has a separate gyroscope sensitivity slider. Drag aiming is available throughout the drill, including on browsers that do not provide motion readings.
+
 A hit earns 100 points and a bullseye earns 150. Select **Armory** to equip a weapon. Each has its own firing cadence, sights, sound, and model.
 
 | Weapon | Fire mode | Magazine | Optic |
