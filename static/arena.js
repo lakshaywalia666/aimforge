@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { createWeaponView } from './weapon-view.js';
+import { defaultLoadout, weapons } from './weapons.js';
 
 export const firingPosition = new THREE.Vector3(0, 3.65, 7);
 
@@ -327,68 +329,6 @@ function buildOutpost(world) {
     batchBlocks(scene, world);
 }
 
-function createWeapon(glowMap) {
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, 1, .01, 8);
-    scene.add(new THREE.HemisphereLight(0xd9e4ff, 0x6b4534, 3));
-    const light = new THREE.DirectionalLight(0xffc995, 2);
-    light.position.set(-2, 3, 1);
-    scene.add(light);
-    const group = new THREE.Group();
-    group.scale.setScalar(.65);
-    scene.add(group);
-    const dark = steel(0x222832, .5);
-    const metal = steel(0x64717c, .65);
-    const accent = new THREE.MeshBasicMaterial({ color: 0xffb474 });
-    const grip = steel(0x151b23);
-    const glove = steel(0x47505b);
-    box(group, dark, .2, .18, .46, 0, 0, 0);
-    const slide = box(group, metal, .18, .11, .48, 0, .09, -.05);
-    box(group, dark, .22, .04, .5, 0, .165, -.06);
-    box(group, accent, .025, .018, .2, .105, .03, -.1);
-    box(group, accent, .025, .018, .2, -.105, .03, -.1);
-    box(group, dark, .055, .065, .05, 0, .2, -.25);
-    box(group, accent, .016, .027, .013, 0, .216, -.22);
-    box(group, dark, .18, .065, .04, 0, .2, .15);
-    const handle = box(group, grip, .16, .27, .17, 0, -.17, .13);
-    handle.rotation.x = -.25;
-    const hand = box(group, glove, .21, .16, .2, .015, -.15, .15);
-    hand.rotation.x = -.25;
-    box(group, glove, .16, .17, .5, .04, -.21, .46).rotation.x = -.1;
-    for (let z = -.15; z < .11; z += .05) box(group, dark, .19, .035, .012, 0, .14, z);
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .24, 12), dark);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, .055, -.36);
-    group.add(barrel);
-    const flash = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: glowMap, color: 0xffcf77, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
-    }));
-    flash.position.set(0, .055, -.51);
-    flash.scale.set(.6, .6, 1);
-    flash.visible = false;
-    group.add(flash);
-    let kick = 0;
-    let flashLife = 0;
-    return {
-        scene, camera,
-        fire() { kick = 1; flashLife = .055; },
-        reset() { kick = 0; flashLife = 0; flash.visible = false; },
-        update(delta, elapsed, moving, motion) {
-            kick *= Math.exp(-delta * 24);
-            flashLife -= delta;
-            flash.visible = motion && flashLife > 0;
-            slide.position.z = -.05 + (motion ? kick * .09 : 0);
-            group.position.set(.32 * Math.min(1, camera.aspect / 1.2), -.3, -.85);
-            group.rotation.set(0, -.04, 0);
-            if (motion) {
-                group.position.z += kick * .065;
-                group.position.y += Math.sin(elapsed * 9) * .006 * Number(moving);
-                group.rotation.x += kick * .1;
-            }
-        },
-    };
-}
-
 function makeTarget(scene, materials) {
     const group = new THREE.Group();
     const { rim, ring, face, inset, core, cross, glow } = materials;
@@ -469,7 +409,8 @@ export function createArena(container) {
         }),
     };
     const targets = Array.from({ length: 3 }, () => makeTarget(scene, materials));
-    const weapon = createWeapon(glowMap);
+    const weapon = createWeaponView(glowMap);
+    let loadout = weapons[defaultLoadout];
     const holes = Array.from({ length: 32 }, () => {
         const hole = new THREE.Mesh(circle, new THREE.MeshBasicMaterial({ color: 0x2a1811, depthWrite: false }));
         hole.scale.setScalar(.035);
@@ -545,6 +486,8 @@ export function createArena(container) {
     function resetCamera(showPreview) {
         preview = showPreview;
         weapon.reset();
+        camera.zoom = 1;
+        camera.updateProjectionMatrix();
         camera.position.copy(firingPosition);
         camera.rotation.set(0, 0, 0);
         if (preview) {
@@ -633,9 +576,16 @@ export function createArena(container) {
         for (const hole of holes) hole.visible = false;
     }
 
-    function update(delta, elapsed, moving) {
+    function update(delta, elapsed, moving, aimed = false, reloadProgress = null) {
         updateSparks(delta);
-        weapon.update(delta, elapsed, moving, settings.motion);
+        const targetZoom = aimed ? loadout.zoom : 1;
+        if (camera.zoom !== targetZoom) {
+            const nextZoom = THREE.MathUtils.damp(camera.zoom, targetZoom, 22, delta);
+            camera.zoom = !settings.motion || Math.abs(nextZoom - targetZoom) < .002 ? targetZoom : nextZoom;
+            camera.updateProjectionMatrix();
+        }
+        const focus = (camera.zoom - 1) / (loadout.zoom - 1);
+        weapon.update(delta, elapsed, moving, settings.motion, focus, reloadProgress);
         frameCount++;
         frameTime += delta;
         if (frameTime < 2) return;
@@ -665,6 +615,10 @@ export function createArena(container) {
     return {
         camera, canvas, targets, resetCamera, resize, traceShot, burst, clearSparks,
         setEnvironment, configure, update, render, markImpact,
+        setLoadout(key) {
+            loadout = weapons[key];
+            weapon.select(key);
+        },
         fire: () => weapon.fire(),
         performance: () => ({ fps, resolution }),
     };

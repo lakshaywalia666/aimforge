@@ -1,6 +1,6 @@
 # AimForge demonstration
 
-The upgraded browser game is available at <https://lakshaywalia666.github.io/aimforge-premium/>.
+The browser game is available at <https://lakshaywalia666.github.io/aimforge/>.
 
 To run the same application locally, build the public `Dockerfile` or follow the Python setup in `README.md`. No registry credentials, database or private runtime configuration are required.
 

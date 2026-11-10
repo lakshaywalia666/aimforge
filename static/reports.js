@@ -2,19 +2,22 @@ import {
     modes, difficulties, environments, matchingSessions, getRecord, profileFor,
     dailyChallenge, medalFor,
 } from './training.js';
+import { loadoutKey, weapons } from './weapons.js';
 
 const byId = id => document.getElementById(id);
 const milliseconds = value => Number.isFinite(value) ? `${Math.round(value).toLocaleString()} ms` : '—';
 const accuracy = session => session.shots ? `${Math.round(session.hits * 100 / session.shots)}%` : '—';
 
 export function renderProgress(sessions, selected, preferences) {
-    const record = getRecord(sessions, selected, preferences.difficulty, preferences.targetSize);
+    const record = getRecord(sessions, selected, preferences.difficulty, preferences.targetSize, preferences.loadout);
+    const weapon = weapons[loadoutKey(preferences.loadout)];
+    const context = `${difficulties[preferences.difficulty].name} · ${preferences.targetSize.toFixed(1)}× · ${weapon.name}`;
     byId('record-mode').textContent = modes[selected].name;
     byId('best-score').textContent = record.completed ? record.score.toLocaleString() : '—';
     byId('best-accuracy').textContent = record.accuracy == null ? '—' : `${record.accuracy}%`;
     byId('completed').textContent = String(record.completed).padStart(2, '0');
-    document.querySelector('.records').ariaLabel = `Records for ${modes[selected].name}, ${difficulties[preferences.difficulty].name}, ${preferences.targetSize.toFixed(1)}× targets`;
-    byId('record-context').textContent = `${difficulties[preferences.difficulty].name} · ${preferences.targetSize.toFixed(1)}× targets`;
+    document.querySelector('.records').ariaLabel = `Records for ${modes[selected].name} · ${context}`;
+    byId('record-context').textContent = context;
     const profile = profileFor(sessions);
     byId('player-level').textContent = `LEVEL ${String(profile.level).padStart(2, '0')}`;
     byId('player-xp').textContent = `${(profile.xp % 1000).toLocaleString()} / 1,000 XP to next level`;
@@ -23,13 +26,13 @@ export function renderProgress(sessions, selected, preferences) {
     const daily = dailyChallenge();
     const complete = profile.dailyDays.has(daily.day);
     byId('daily-title').textContent = `${modes[daily.mode].name} discipline`;
-    byId('daily-description').textContent = `Land ${daily.hits} hits with ${daily.accuracy}% accuracy in one completed drill. Standard · 1.0× targets.`;
+    byId('daily-description').textContent = `Land ${daily.hits} hits with ${daily.accuracy}% accuracy. Forge Trainer · Standard · 1.0× targets.`;
     byId('daily-status').textContent = complete ? '✓ Completed today' : `${daily.day} · Local time`;
     byId('daily-button').textContent = complete ? 'Play challenge again →' : 'Take challenge →';
 }
 
 function scoreTrend(sessions, selected, preferences) {
-    const matching = matchingSessions(sessions, selected, preferences.difficulty, preferences.targetSize).slice(-10);
+    const matching = matchingSessions(sessions, selected, preferences.difficulty, preferences.targetSize, preferences.loadout).slice(-10);
     const trend = byId('score-trend');
     trend.replaceChildren();
     byId('trend-section').hidden = matching.length < 2;
@@ -54,7 +57,8 @@ function scoreTrend(sessions, selected, preferences) {
         dot.append(title);
         trend.append(dot);
     });
-    byId('trend-label').textContent = `Last ${matching.length} ${modes[selected].name} scores · ${difficulties[preferences.difficulty].name} · ${preferences.targetSize.toFixed(1)}× targets`;
+    const weapon = weapons[loadoutKey(preferences.loadout)];
+    byId('trend-label').textContent = `Last ${matching.length} ${modes[selected].name} scores · ${difficulties[preferences.difficulty].name} · ${preferences.targetSize.toFixed(1)}× · ${weapon.name}`;
 }
 
 export function renderJournal(sessions, selected, preferences) {
@@ -82,7 +86,8 @@ export function renderJournal(sessions, selected, preferences) {
         const settings = document.createElement('td');
         settings.textContent = modes[session.mode].name;
         const context = document.createElement('small');
-        context.textContent = `${difficulties[session.difficulty].name} · ${session.targetSize.toFixed(1)}× · ${environments[session.environment]?.name ?? 'Foundry'}`;
+        const weapon = weapons[loadoutKey(session.loadout)];
+        context.textContent = `${difficulties[session.difficulty].name} · ${session.targetSize.toFixed(1)}× · ${environments[session.environment]?.name ?? 'Foundry'} · ${weapon.name}`;
         settings.append(context);
         row.append(settings);
         const values = [
@@ -131,16 +136,20 @@ export function renderShotMap(placements) {
 }
 
 export function renderReport(session, priorSessions, xpGained) {
-    const record = getRecord(priorSessions, session.mode, session.difficulty, session.targetSize);
-    const previous = matchingSessions(priorSessions, session.mode, session.difficulty, session.targetSize).at(-1);
+    const record = getRecord(priorSessions, session.mode, session.difficulty, session.targetSize, session.loadout);
+    const previous = matchingSessions(priorSessions, session.mode, session.difficulty, session.targetSize, session.loadout).at(-1);
+    const weapon = weapons[loadoutKey(session.loadout)];
     byId('result-kicker').textContent = session.score > record.score ? 'NEW PERSONAL BEST' : 'DRILL COMPLETE';
-    byId('result-mode').textContent = `${modes[session.mode].name} · ${difficulties[session.difficulty].name} · ${session.targetSize.toFixed(1)}× · ${environments[session.environment].name}`;
+    byId('result-mode').textContent = `${modes[session.mode].name} · ${difficulties[session.difficulty].name} · ${session.targetSize.toFixed(1)}× · ${environments[session.environment].name} · ${weapon.name}`;
     byId('result-score').textContent = session.score.toLocaleString();
     byId('result-accuracy').textContent = accuracy(session);
     byId('result-hits').textContent = `${session.hits} / ${session.shots}`;
     byId('result-streak').textContent = session.bestStreak;
     byId('result-response').textContent = milliseconds(session.response);
     byId('result-interval').textContent = milliseconds(session.interval);
+    const aimedHits = session.aimedHits ?? 0;
+    const reloads = session.reloads ?? 0;
+    byId('result-weapon-stats').textContent = `${aimedHits} aimed ${aimedHits === 1 ? 'hit' : 'hits'} · ${reloads} ${reloads === 1 ? 'reload' : 'reloads'}`;
     const medal = medalFor(session);
     byId('result-medal').textContent = medal === 'Practice' ? 'Practice complete' : `${medal} performance`;
     byId('result-medal').dataset.medal = medal;

@@ -1,3 +1,5 @@
+import { defaultLoadout, loadoutKey } from './weapons.js';
+
 export const modes = {
     reflex: { name: 'Reflex', duration: 30, count: 1, radius: 1.04, description: 'Snap between single targets', icon: 'reflex' },
     precision: { name: 'Precision', duration: 45, count: 3, radius: .64, description: 'Pick off smaller targets', icon: 'precision' },
@@ -5,7 +7,7 @@ export const modes = {
     strafe: { name: 'Strafe', duration: 30, count: 1, radius: .9, description: 'Read lateral direction changes', icon: 'tracking' },
     flick: { name: 'Wide flick', duration: 30, count: 1, radius: .85, description: 'Alternate across the range', icon: 'reflex' },
     peek: { name: 'Quick peek', duration: 30, count: 1, radius: .95, description: 'Hit targets before they vanish', icon: 'precision' },
-    recoil: { name: 'Recoil', duration: 30, count: 1, radius: 1.55, description: 'Hold fire and control the climb', icon: 'reflex' },
+    recoil: { name: 'Recoil', duration: 30, count: 1, radius: 1.55, description: 'Control the climb on one target', icon: 'reflex' },
 };
 
 export const difficulties = {
@@ -60,13 +62,14 @@ export function loadPreferences(coarsePointer, reducedMotion) {
         crosshairSize: number(stored?.crosshairSize, 12, 40, 24),
         quality: choose(stored?.quality, { auto: 1, low: 1, medium: 1, high: 1 }, 'auto'),
         showPerformance: stored?.showPerformance === true,
+        loadout: loadoutKey(stored?.loadout),
         weapon: stored?.weapon !== false,
         motion: typeof stored?.motion === 'boolean' ? stored.motion : !reducedMotion,
     };
 }
 
-export function configurationKey(mode, difficulty, size) {
-    return `${mode}.${difficulty}.${Number(size).toFixed(2)}`;
+export function configurationKey(mode, difficulty, size, loadout) {
+    return `${mode}.${difficulty}.${Number(size).toFixed(2)}.${loadoutKey(loadout)}`;
 }
 
 export function readSessions() {
@@ -104,16 +107,16 @@ export function saveSession(session) {
     return saveValue('session.' + session.id, session);
 }
 
-export function matchingSessions(sessions, mode, difficulty, size) {
-    const key = configurationKey(mode, difficulty, size);
-    return sessions.filter(session => configurationKey(session.mode, session.difficulty, session.targetSize) === key);
+export function matchingSessions(sessions, mode, difficulty, size, loadout) {
+    const key = configurationKey(mode, difficulty, size, loadout);
+    return sessions.filter(session => configurationKey(session.mode, session.difficulty, session.targetSize, session.loadout) === key);
 }
 
-export function getRecord(sessions, mode, difficulty, size) {
-    const matching = matchingSessions(sessions, mode, difficulty, size);
+export function getRecord(sessions, mode, difficulty, size, loadout) {
+    const matching = matchingSessions(sessions, mode, difficulty, size, loadout);
     const record = { score: 0, accuracy: null, completed: 0 };
     // Preserve records from the original three-drill version at their original size.
-    if (difficulty === 'standard' && size === 1) {
+    if (difficulty === 'standard' && size === 1 && loadoutKey(loadout) === defaultLoadout) {
         const previous = readValue(mode);
         if (Number.isSafeInteger(previous?.completed) && previous.completed > 0
             && Number.isSafeInteger(previous.score) && previous.score >= 0) {
@@ -146,6 +149,7 @@ export function dailyChallenge(date = new Date()) {
 export function qualifiesForDaily(session) {
     const daily = session.daily;
     return daily && session.mode === daily.mode && session.difficulty === 'standard' && session.targetSize === 1
+        && loadoutKey(session.loadout) === defaultLoadout
         && dateKey(new Date(session.finishedAt)) === daily.day
         && session.hits >= daily.hits && session.shots > 0 && session.hits * 100 / session.shots >= daily.accuracy;
 }

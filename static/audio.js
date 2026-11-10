@@ -32,22 +32,28 @@ export function createAudio(preferences) {
         oscillator.stop(time + duration);
     }
 
-    function play(name) {
+    function play(name, shotSound) {
         if (!preferences.sound || preferences.volume <= 0 || context?.state !== 'running') return;
         if (name === 'shot') {
-            tone(140, 48, .13, .22, 'triangle');
+            const { pitch, tail, length, cutoff, crack } = shotSound;
+            tone(pitch, tail, length, .22, 'triangle');
             const source = context.createBufferSource();
             source.buffer = noise;
             const filter = context.createBiquadFilter();
             filter.type = 'highpass';
-            filter.frequency.value = 1500;
+            filter.frequency.value = cutoff;
             const gain = context.createGain();
             const time = context.currentTime;
-            gain.gain.setValueAtTime(.17 * preferences.volume, time);
-            gain.gain.exponentialRampToValueAtTime(.001, time + .065);
+            gain.gain.setValueAtTime(crack * preferences.volume, time);
+            gain.gain.exponentialRampToValueAtTime(.001, time + Math.min(.1, length * .72));
             source.connect(filter).connect(gain).connect(context.destination);
             source.start();
-            source.stop(time + .08);
+            source.stop(time + Math.min(.13, length));
+        } else if (name === 'reload') {
+            tone(320, 160, .12, .065, 'triangle');
+        } else if (name === 'chamber') {
+            tone(470, 290, .095, .07, 'triangle');
+            tone(890, 610, .067, .035, 'triangle', .035);
         } else if (name === 'hit') {
             tone(780, 500, .08, .1);
         } else if (name === 'bullseye') {

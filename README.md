@@ -1,8 +1,8 @@
 # AimForge 3D Trainer
 
-AimForge is a browser-based 3D aim trainer built with Three.js and served by Flask. Train across seven drills in three arenas, customize your aim setup, and track your progress in a personal journal.
+AimForge is a browser-based 3D aim trainer built with Three.js and served by Flask. Train across seven drills in three arenas with five weapons, customize your aim setup, and track your progress in a personal journal.
 
-[Play on GitHub Pages](https://lakshaywalia666.github.io/aimforge-premium/) · [Portfolio](https://lakshaywalia.com/projects.html)
+[Play on GitHub Pages](https://lakshaywalia666.github.io/aimforge/) · [Portfolio](https://lakshaywalia.com/projects.html)
 
 ## Run locally
 
@@ -37,23 +37,33 @@ To generate the same static site locally, install the Python dependencies and ru
 | Strafe | 30 seconds | Follow a target that reverses direction across the range. |
 | Wide flick | 30 seconds | Alternate between targets on opposite sides of the range. |
 | Quick peek | 30 seconds | Hit targets before they disappear. |
-| Recoil | 30 seconds | Hold fire and pull your aim down to compensate for a repeatable recoil pattern. |
+| Recoil | 30 seconds | Keep your shots grouped as you compensate for the weapon's recoil pattern. |
 
 Use WASD to move. With a captured mouse, aim with the mouse and click to fire. In keyboard mode, aim with the arrow keys and press Space or select **Fire**. With touch controls, drag the range to aim and tap **Fire**. Press Esc on desktop or use the pause button in keyboard or touch mode.
 
-A hit earns 100 points and a bullseye earns 150. The weapon has firing and slide animations, muzzle flashes, hit markers, and procedural sound effects. Hold the mouse button, Space, or the touch Fire button for automatic fire in Recoil.
+A hit earns 100 points and a bullseye earns 150. Select **Armory** to equip a weapon. Each has its own firing cadence, sights, sound, and model.
+
+| Weapon | Fire mode | Magazine | Optic |
+| --- | --- | --- | --- |
+| Forge Trainer | Semi-auto, automatic in Recoil | Unlimited | 1.2× |
+| Viper P9 | Semi-auto | 12 | 1.35× |
+| Wraith SMG | Automatic | 24 | 1.3× |
+| Atlas C4 | Automatic | 20 | 1.6× |
+| Longshot DMR | Semi-auto | 6 | 2.4× |
+
+Press Q, right-click with captured mouse, or tap **Aim** to toggle sights. Press R or tap **Reload** to refill the magazine. An empty magazine starts a reload automatically. Hold the trigger on automatic weapons. Reloads and firing cooldowns use the drill clock, so they pause with the round.
 
 Choose **Foundry**, **Laboratory**, or the outdoor **Outpost** above the arena preview. Select Relaxed, Standard, or Expert difficulty to change target size, movement speed, and peek exposure time.
 
 **Settings** includes sensitivity, vertical field of view, target size and color, crosshair shape, size and color, sound and volume, weapon visibility, motion effects, graphics quality, and an optional performance counter. Auto quality adjusts rendering resolution to frame rate. A fullscreen button is available in browsers that support it. Target size changes apply to the next drill. Motion effects initially follow the device's reduced-motion preference.
 
-The session report includes score, accuracy, hits, shots, best streak, average target response, average time between hits, and a map of the last 300 projected shots. Response measures the time from a target appearing to the first shot at it. Pauses are excluded from timing metrics. Shots aimed away from every target plane do not appear on the placement map.
+The session report includes score, accuracy, hits, shots, best streak, aimed hits, completed reloads, average target response, average time between hits, and a map of the last 300 projected shots. Response measures the time from a target appearing to the first shot at it. Pauses are excluded from timing metrics. Shots aimed away from every target plane do not appear on the placement map.
 
-Open the **Training journal** for your latest 30 sessions, milestone medals, and a score trend for the latest 10 matching runs. Personal records and comparisons use the same drill, difficulty, and target size. Existing records from the original three-drill game remain under Standard difficulty with 1.0× targets.
+Open the **Training journal** for your latest 30 sessions, milestone medals, and a score trend for the latest 10 matching runs. Personal records and comparisons use the same drill, difficulty, target size, and weapon. Earlier scores appear under the Forge Trainer. Records from the original three-drill game use Standard difficulty and 1.0× targets.
 
 Completed drills award 100 XP, plus 10 XP per hit and 5 XP per bullseye. Every 1,000 XP earns a level. Performance medals require 5 hits at 50% accuracy for Bronze, 15 at 75% for Silver, or 25 at 90% for Gold.
 
-The daily challenge rotates at midnight in the player's local time. Complete the selected drill with at least 15 hits and 70% accuracy on Standard difficulty and 1.0× targets to earn 250 bonus XP once that day. The challenge button selects those settings. A qualifying regular run also counts.
+The daily challenge rotates at midnight in the player's local time. Complete the selected drill with at least 15 hits and 70% accuracy using the Forge Trainer, Standard difficulty, and 1.0× targets to earn 250 bonus XP once that day. The challenge button selects that setup. A qualifying regular run also counts.
 
 ## Scope
 
@@ -69,6 +79,8 @@ build_pages.py            Static export for GitHub Pages
 templates/index.html      Lobby, controls, and session report
 static/game.js            Drill rules, inputs, and local records
 static/arena.js           3D range, targets, and hit detection
+static/weapons.js         Weapon catalog and handling values
+static/weapon-view.js     3D weapon models and firing animations
 static/training.js        Drill catalog, saved sessions, and progression
 static/reports.js         Session reports, shot maps, and journal
 static/audio.js           Procedural shot and feedback sounds
@@ -80,4 +92,4 @@ Dockerfile                Local demo container
 
 ## Gameplay
 
-![Reflex drill in the Foundry with the training weapon and live score](docs/gameplay.jpg)
+![Reflex drill in the Foundry with the Atlas C4 aimed down sights](docs/gameplay.jpg)

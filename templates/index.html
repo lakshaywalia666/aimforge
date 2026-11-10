@@ -50,13 +50,18 @@
             <section class="lobby" aria-labelledby="lobby-title">
                 <div class="eyebrow"><span class="stripes"></span> TRAINING FACILITY / 01</div>
                 <h1 id="lobby-title">Training<br>range<span>.</span></h1>
-                <p class="intro">Seven drills. Three arenas.<br>A sharper version of your aim.</p>
+                <p class="intro">Seven drills, three arenas, five loadouts.<br>A sharper version of your aim.</p>
 
                 <fieldset class="drills">
                     <legend>SELECT A DRILL</legend>
                     <div class="drill-options" id="drill-options"></div>
                 </fieldset>
 
+                <button class="loadout-trigger" id="loadout-button" type="button" aria-haspopup="dialog">
+                    <svg viewBox="0 0 100 32" aria-hidden="true"><path id="loadout-silhouette"/></svg>
+                    <span><small>EQUIPPED WEAPON</small><strong id="loadout-name">Forge Trainer</strong></span>
+                    <span class="loadout-change">Armory ↗</span>
+                </button>
                 <label class="field-label" for="difficulty">DIFFICULTY</label>
                 <select class="field-select" id="difficulty">
                     <option value="relaxed">Relaxed · Larger, slower targets</option>
@@ -95,6 +100,7 @@
                     </div>
 
                     <div id="combat" hidden>
+                        <div class="scope-mask" aria-hidden="true"></div>
                         <div class="combat-top">
                             <div class="combat-heading"><span class="eyebrow" id="combat-location">FOUNDRY / LIVE DRILL</span><strong id="active-drill">Reflex</strong></div>
                             <div class="hud">
@@ -113,7 +119,18 @@
                         <div class="combat-footer">
                             <span id="combat-hint"></span>
                             <span class="performance" id="performance"></span>
-                            <button class="subtle-button" id="fire-button" type="button">Fire</button>
+                            <div class="combat-actions">
+                                <div class="weapon-readout" id="weapon-readout">
+                                    <div><strong id="combat-weapon">Forge Trainer</strong><span id="weapon-status" role="status"></span></div>
+                                    <div class="ammo"><strong id="ammo-current">∞</strong><span id="ammo-capacity"></span></div>
+                                    <div class="reload-track" id="reload-track" hidden><div id="reload-bar"></div></div>
+                                </div>
+                                <div class="combat-buttons">
+                                    <button class="subtle-button" id="aim-button" type="button" aria-pressed="false">Aim</button>
+                                    <button class="subtle-button" id="reload-button" type="button">Reload</button>
+                                    <button class="subtle-button" id="fire-button" type="button">Fire</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -144,6 +161,7 @@
                                 <div><dt>Avg. hit interval</dt><dd id="result-interval"></dd></div>
                             </dl>
                             <p class="comparison" id="result-comparison"></p>
+                            <p class="metric-note" id="result-weapon-stats"></p>
                             <div class="shot-report">
                                 <div><span class="eyebrow">SHOT PLACEMENT</span><canvas id="shot-map" width="260" height="200" aria-label="Shot placement relative to each target center"></canvas></div>
                                 <div><strong>Find your pattern.</strong><p id="shot-summary"></p><small>Each mark is relative to the target center. Orange marks hit, red marks missed. Edge marks fell outside this view.</small></div>
@@ -183,6 +201,19 @@
             <a href="https://lakshaywalia.com/projects.html">All projects <svg><use href="#icon-external"/></svg></a>
         </footer>
     </div>
+
+    <dialog class="armory" id="armory-dialog" aria-labelledby="armory-title">
+        <div class="settings-header">
+            <div><div class="eyebrow">RANGE EQUIPMENT</div><h2 id="armory-title">Armory</h2></div>
+            <form method="dialog"><button class="subtle-button icon-button" aria-label="Close armory"><svg><use href="#icon-close"/></svg></button></form>
+        </div>
+        <p class="journal-description">Choose a weapon for your next drill. Each loadout has its own personal records.</p>
+        <fieldset class="armory-grid">
+            <legend class="sr-only">Weapon loadout</legend>
+            <div class="armory-options" id="armory-options"></div>
+        </fieldset>
+        <form method="dialog"><button class="primary-button">Done <svg class="button-arrow"><use href="#icon-arrow"/></svg></button></form>
+    </dialog>
 
     <dialog class="settings" id="settings-dialog" aria-labelledby="settings-title">
         <div class="settings-header">
@@ -246,7 +277,7 @@
             <thead><tr><th scope="col">Drill / settings</th><th scope="col">Score</th><th scope="col">Accuracy</th><th scope="col">Response</th><th scope="col">Medal</th><th scope="col">Played</th></tr></thead>
             <tbody id="history-body"></tbody>
         </table></div>
-        <p class="metric-note">Gold requires 25 hits and 90% accuracy. Silver requires 15 hits and 75%. Bronze requires 5 hits and 50%. Records and trends compare the same drill, difficulty, and target size.</p>
+        <p class="metric-note">Gold requires 25 hits and 90% accuracy. Silver requires 15 hits and 75%. Bronze requires 5 hits and 50%. Records and trends compare the same drill, difficulty, target size, and weapon.</p>
     </dialog>
 </body>
 </html>

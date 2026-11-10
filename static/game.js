@@ -7,6 +7,7 @@ import {
 } from './training.js';
 import { renderProgress, renderJournal, renderReport } from './reports.js';
 import { createAudio } from './audio.js';
+import { defaultLoadout, weapons } from './weapons.js';
 
 const positions = [
     [[-4.8, 3.65, -14], [-7.7, 5.5, -20], [-5.6, 2.45, -11], [-3.9, 6.15, -19]],
@@ -14,15 +15,16 @@ const positions = [
     [[4.8, 3.65, -14], [7.7, 5.5, -20], [5.6, 2.45, -11], [3.9, 6.15, -19]],
 ];
 const guides = {
-    mouse: [['W', 'A', 'S', 'D', 'Move'], ['Mouse', 'Aim'], ['Click', 'Fire'], ['Esc', 'Pause']],
-    keyboard: [['W', 'A', 'S', 'D', 'Move'], ['↑', '↓', '←', '→', 'Aim'], ['Space', 'Fire'], ['Esc', 'Pause']],
-    touch: [['Drag', 'Aim'], ['Fire', 'Shoot']],
+    mouse: [['W', 'A', 'S', 'D', 'Move'], ['Mouse', 'Look'], ['Click', 'Fire'], ['Q', 'Sights'], ['R', 'Reload'], ['Esc', 'Pause']],
+    keyboard: [['W', 'A', 'S', 'D', 'Move'], ['↑', '↓', '←', '→', 'Look'], ['Space', 'Fire'], ['Q', 'Sights'], ['R', 'Reload'], ['Esc', 'Pause']],
+    touch: [['Drag', 'Look'], ['Aim', 'Sights'], ['Fire', 'Shoot'], ['Reload', 'Swap magazine']],
 };
-const hints = {
-    mouse: 'WASD move · Mouse aim · Click fire · Esc pause',
-    keyboard: 'WASD move · Arrows aim · Space fire · Esc pause',
-    touch: 'Drag to aim · Tap Fire to shoot',
+const controlHints = {
+    mouse: { look: 'WASD move · Mouse look', trigger: 'Click', aim: 'Q / Right click sights' },
+    keyboard: { look: 'WASD move · Arrows look', trigger: 'Space', aim: 'Q sights' },
+    touch: { look: 'Drag to look', trigger: 'Fire', aim: 'Aim for sights' },
 };
+const trainerRecoil = { pitch: .014, yaw: .005, climb: .0008 };
 const aimKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
 const byId = id => document.getElementById(id);
@@ -92,6 +94,46 @@ function init() {
         });
         byId('drill-options').append(label);
     }
+    const loadoutButton = byId('loadout-button');
+    const armory = byId('armory-dialog');
+    for (const [key, weapon] of Object.entries(weapons)) {
+        const card = document.createElement('label');
+        card.className = 'armory-card';
+        card.style.setProperty('--weapon-accent', weapon.accent);
+        const rpm = Math.round(60000 / weapon.interval);
+        const reload = weapon.magazine == null ? '—' : `${(weapon.reload / 1000).toFixed(2)}s`;
+        // These labels and SVG paths come from the fixed weapon catalog.
+        card.innerHTML = `<input type="radio" name="loadout" value="${key}">
+            <span class="armory-kind">${weapon.category} · ${weapon.automatic ? 'Auto' : 'Semi'}</span>
+            <svg viewBox="0 0 100 32" aria-hidden="true"><path d="${weapon.silhouette}"/></svg>
+            <strong>${weapon.name}</strong><span class="armory-description">${weapon.description}</span>
+            <span class="armory-specs">
+                <span><b>${weapon.magazine ?? '∞'}</b><small>ROUNDS</small></span>
+                <span><b>${rpm}</b><small>RPM</small></span>
+                <span><b>${reload}</b><small>RELOAD</small></span>
+                <span><b>${weapon.zoom}×</b><small>OPTIC</small></span>
+            </span>`;
+        card.querySelector('input').addEventListener('change', () => equipLoadout(key));
+        byId('armory-options').append(card);
+    }
+    loadoutButton.addEventListener('click', () => armory.showModal());
+
+    function showLoadout() {
+        const weapon = weapons[preferences.loadout];
+        document.querySelector(`input[name="loadout"][value="${preferences.loadout}"]`).checked = true;
+        byId('loadout-name').textContent = weapon.name;
+        byId('loadout-silhouette').setAttribute('d', weapon.silhouette);
+        loadoutButton.style.setProperty('--weapon-accent', weapon.accent);
+    }
+
+    function equipLoadout(key) {
+        preferences.loadout = key;
+        showLoadout();
+        saveValue('preferences', preferences);
+        refreshProgress();
+    }
+
+    showLoadout();
     showGuide();
     refreshProgress();
     controlSelect.addEventListener('change', () => {
@@ -127,7 +169,7 @@ function init() {
             reticle.style.setProperty('--reticle-color', preferences.crosshairColor);
             reticle.style.setProperty('--reticle-size', `${preferences.crosshairSize}px`);
         }
-        if (controls) controls.pointerSpeed = preferences.sensitivity;
+        if (controls) controls.pointerSpeed = preferences.sensitivity / arena.camera.zoom;
         if (arena) {
             arena.configure(preferences);
             arena.render();
@@ -233,6 +275,13 @@ function init() {
     const resumeButton = byId('resume-button');
     const keyboardResume = byId('keyboard-resume');
     const fireButton = byId('fire-button');
+    const aimButton = byId('aim-button');
+    const reloadButton = byId('reload-button');
+    const weaponReadout = byId('weapon-readout');
+    const weaponStatus = byId('weapon-status');
+    const ammoCurrent = byId('ammo-current');
+    const reloadTrack = byId('reload-track');
+    const reloadBar = byId('reload-bar');
     const background = document.querySelectorAll('.topbar, .lobby, .records, .footer, .range-toolbar, .training-panels');
     const keys = new Set();
     const heldFire = new Set();
@@ -258,13 +307,32 @@ function init() {
     }
 
     function setControlUI() {
-        const { control } = round;
+        const { control, automatic, weapon } = round;
         stage.dataset.control = control;
-        const holdHint = control === 'mouse' ? 'Hold click' : control === 'keyboard' ? 'Hold Space or Fire' : 'Hold Fire';
-        byId('combat-hint').textContent = round.key === 'recoil' ? `${holdHint} · Aim down to control recoil` : hints[control];
+        const guide = controlHints[control];
+        const trigger = automatic ? `Hold ${guide.trigger} to fire` : `${guide.trigger} to fire`;
+        const reload = control !== 'touch' && weapon.magazine != null ? ' · R reload' : '';
+        const pauseHint = control === 'touch' ? '' : ' · Esc pause';
+        byId('combat-hint').textContent = `${guide.look} · ${trigger} · ${guide.aim}${reload}${pauseHint}`;
         pauseButton.hidden = control === 'mouse';
         fireButton.hidden = control === 'mouse';
-        fireButton.textContent = round.key === 'recoil' ? 'Hold Fire' : 'Fire';
+        aimButton.hidden = control === 'mouse';
+        reloadButton.hidden = control === 'mouse' || weapon.magazine == null;
+        fireButton.textContent = automatic ? 'Hold Fire' : 'Fire';
+    }
+
+    function updateWeaponHud() {
+        const { weapon, ammo, aimed, automatic, reloadUntil } = round;
+        const reloading = reloadUntil != null;
+        ammoCurrent.textContent = ammo == null ? '∞' : String(ammo).padStart(2, '0');
+        const status = reloading ? 'RELOADING' : aimed ? `ADS · ${weapon.zoom}×` : automatic ? 'AUTO' : 'SEMI';
+        if (weaponStatus.textContent !== status) weaponStatus.textContent = status;
+        weaponReadout.toggleAttribute('data-low', ammo != null && ammo <= Math.ceil(weapon.magazine * .25));
+        reloadTrack.hidden = !reloading;
+        reloadButton.disabled = reloading || ammo === weapon.magazine;
+        aimButton.disabled = reloading;
+        aimButton.setAttribute('aria-pressed', aimed);
+        stage.dataset.aiming = aimed;
     }
 
     function setTarget(target, point, radius) {
@@ -306,6 +374,8 @@ function init() {
     function startRound(control) {
         const mode = modes[selected];
         const difficulty = difficulties[preferences.difficulty];
+        const loadout = preferences.loadout;
+        const weapon = weapons[loadout];
         round = {
             id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             key: selected, mode, control, difficulty, difficultyKey: preferences.difficulty,
@@ -314,9 +384,12 @@ function init() {
             score: 0, shots: 0, hits: 0, bullseyes: 0, streak: 0, bestStreak: 0, escaped: 0,
             lastShot: -Infinity, lastSpawn: positions[1][0], flickSide: 1, elapsed: 0,
             responses: [], intervals: [], placements: [], lastHitAt: null, sprayIndex: 0,
+            loadout, weapon, ammo: weapon.magazine, reloadUntil: null, reloads: 0, aimed: false, aimedHits: 0,
+            automatic: weapon.automatic || (selected === 'recoil' && loadout === defaultLoadout),
             daily: dailyChallenge(),
         };
         clearInput();
+        arena.setLoadout(loadout);
         arena.resetCamera(false);
         arena.clearSparks();
         for (let i = 0; i < targets.length; i++) {
@@ -328,7 +401,12 @@ function init() {
         }
         byId('active-drill').textContent = mode.name;
         byId('combat-location').textContent = `${environments[round.environment].name.toUpperCase()} / ${difficulty.name.toUpperCase()}`;
+        byId('combat-weapon').textContent = weapon.name;
+        byId('ammo-capacity').textContent = weapon.magazine == null ? '' : `/ ${weapon.magazine}`;
+        stage.dataset.optic = weapon.scoped ? 'scope' : 'sights';
+        stage.style.setProperty('--weapon-accent', weapon.accent);
         setControlUI();
+        updateWeaponHud();
         feedback.classList.remove('is-hit');
         marker.classList.remove('is-hit');
         updateStats();
@@ -392,6 +470,7 @@ function init() {
             environment: round.environment, finishedAt: new Date().toISOString(),
             score: round.score, shots: round.shots, hits: round.hits, bullseyes: round.bullseyes,
             bestStreak: round.bestStreak, escaped: round.escaped,
+            loadout: round.loadout, reloads: round.reloads, aimedHits: round.aimedHits,
             response: average(round.responses), interval: average(round.intervals),
             placements: round.placements, daily: round.daily,
         };
@@ -476,8 +555,7 @@ function init() {
         byId('difficulty').value = 'standard';
         byId('target-size').value = '1';
         byId('target-size-value').value = '1.0×';
-        saveValue('preferences', preferences);
-        refreshProgress();
+        equipLoadout(defaultLoadout);
         requestPlay('start', preferences.control);
     });
 
@@ -537,6 +615,45 @@ function init() {
         }
     }
 
+    function beginReload(elapsed) {
+        if (round.ammo == null || round.ammo === round.weapon.magazine || round.reloadUntil != null) return;
+        round.reloadUntil = elapsed + round.weapon.reload;
+        round.aimed = false;
+        reloadBar.style.transform = 'scaleX(0)';
+        updateWeaponHud();
+        audio.play('reload');
+    }
+
+    function advanceReload(elapsed) {
+        if (round.reloadUntil == null) return null;
+        if (elapsed < round.reloadUntil) {
+            const progress = MathUtils.clamp(1 - (round.reloadUntil - elapsed) / round.weapon.reload, 0, 1);
+            reloadBar.style.transform = `scaleX(${progress})`;
+            return progress;
+        }
+        round.reloadUntil = null;
+        round.ammo = round.weapon.magazine;
+        round.reloads++;
+        round.sprayIndex = 0;
+        updateWeaponHud();
+        audio.play('chamber');
+        return null;
+    }
+
+    function reload() {
+        const now = performance.now();
+        if (state !== 'active' || now >= phaseEnds) return;
+        const elapsed = elapsedAt(now);
+        advanceReload(elapsed);
+        beginReload(elapsed);
+    }
+
+    function toggleAim() {
+        if (state !== 'active' || round.reloadUntil != null) return;
+        round.aimed = !round.aimed;
+        updateWeaponHud();
+    }
+
     function shoot() {
         if (state !== 'active') return;
         const now = performance.now();
@@ -544,14 +661,18 @@ function init() {
             finishRound();
             return;
         }
-        const interval = round.key === 'recoil' ? 110 : 115;
-        if (now - round.lastShot < interval) return;
-        if (now - round.lastShot > 350) round.sprayIndex = 0;
-        round.lastShot = now;
         round.elapsed = elapsedAt(now);
+        advanceReload(round.elapsed);
+        if (round.reloadUntil != null) return;
+        const classicRecoil = round.key === 'recoil' && round.loadout === defaultLoadout;
+        const interval = classicRecoil ? 110 : round.weapon.interval;
+        if (round.elapsed - round.lastShot < interval) return;
+        if (round.elapsed - round.lastShot > 350) round.sprayIndex = 0;
+        round.lastShot = round.elapsed;
         updateTargets(round.elapsed);
         round.shots++;
-        audio.play('shot');
+        if (round.ammo != null) round.ammo--;
+        audio.play('shot', round.weapon.sound);
         arena.fire();
         const shot = arena.traceShot();
         if (shot) {
@@ -564,6 +685,7 @@ function init() {
         }
         if (shot?.hit) {
             round.hits++;
+            round.aimedHits += Number(round.aimed);
             round.bullseyes += Number(shot.bullseye);
             round.score += shot.bullseye ? 150 : 100;
             round.streak++;
@@ -578,12 +700,16 @@ function init() {
             round.streak = 0;
         }
         shotFeedback(Boolean(shot?.hit), shot?.bullseye);
-        if (round.key === 'recoil') {
+        const recoil = classicRecoil ? trainerRecoil : round.weapon.recoil;
+        if (recoil.pitch) {
             const index = round.sprayIndex++;
-            aim(Math.sin(index * .72) * .005 * round.difficulty.speed,
-                (.014 + Math.min(index, 12) * .0008) * round.difficulty.speed);
+            const strength = (round.key === 'recoil' ? round.difficulty.speed : 1) * (round.aimed ? .82 : 1);
+            aim(Math.sin(index * .72) * recoil.yaw * strength,
+                (recoil.pitch + Math.min(index, 12) * recoil.climb) * strength);
         }
         updateStats();
+        if (round.ammo === 0) beginReload(round.elapsed);
+        else updateWeaponHud();
     }
 
     function aim(yaw, pitch) {
@@ -592,6 +718,7 @@ function init() {
     }
 
     function aimWithKeys(step) {
+        step /= camera.zoom;
         const yaw = Number(keys.has('ArrowLeft')) - Number(keys.has('ArrowRight'));
         const pitch = Number(keys.has('ArrowUp')) - Number(keys.has('ArrowDown'));
         if (yaw || pitch) aim(yaw * step, pitch * step);
@@ -603,7 +730,13 @@ function init() {
             if (round.control !== 'mouse') pause();
             return;
         }
-        if (event.code === 'Space' && !event.target.closest('button')) {
+        if (event.code === 'KeyQ' || event.code === 'KeyR') {
+            event.preventDefault();
+            if (!event.repeat) {
+                if (event.code === 'KeyQ') toggleAim();
+                else reload();
+            }
+        } else if (event.code === 'Space' && !event.target.closest('button')) {
             event.preventDefault();
             if (!event.repeat) {
                 heldFire.add('space');
@@ -627,9 +760,14 @@ function init() {
         if (document.hidden) pause();
     });
     canvas.addEventListener('pointerdown', (event) => {
-        if (!['active', 'countdown'].includes(state) || event.button !== 0) return;
+        if (state !== 'active' && state !== 'countdown') return;
+        if (event.button === 2 && round.control === 'mouse') {
+            toggleAim();
+            return;
+        }
+        if (event.button !== 0) return;
         if (round.control !== 'touch') {
-            heldFire.add('pointer');
+            heldFire.add(event.pointerId);
             shoot();
         } else if (!drag) {
             drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
@@ -638,29 +776,32 @@ function init() {
     });
     canvas.addEventListener('pointermove', (event) => {
         if (drag?.id !== event.pointerId) return;
-        aim((drag.x - event.clientX) * .005, (event.clientY - drag.y) * .005);
+        const sensitivity = .005 / camera.zoom;
+        aim((drag.x - event.clientX) * sensitivity, (event.clientY - drag.y) * sensitivity);
         drag.x = event.clientX;
         drag.y = event.clientY;
     });
     canvas.addEventListener('lostpointercapture', (event) => {
         if (drag?.id === event.pointerId) drag = null;
     });
-    const releaseFire = () => {
-        heldFire.delete('pointer');
-        heldFire.delete('button');
-    };
+    canvas.addEventListener('contextmenu', event => {
+        if (state === 'active' || state === 'countdown') event.preventDefault();
+    });
+    const releaseFire = event => heldFire.delete(event.pointerId);
     document.addEventListener('pointerup', releaseFire);
     document.addEventListener('pointercancel', releaseFire);
     fireButton.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0 || round?.key !== 'recoil') return;
-        heldFire.add('button');
+        if (event.button !== 0 || !round?.automatic) return;
+        heldFire.add(event.pointerId);
         fireButton.setPointerCapture(event.pointerId);
         shoot();
     });
     fireButton.addEventListener('click', (event) => {
-        if (round?.key !== 'recoil' || event.detail === 0) shoot();
+        if (!round?.automatic || event.detail === 0) shoot();
     });
-    fireButton.addEventListener('lostpointercapture', () => heldFire.delete('button'));
+    fireButton.addEventListener('lostpointercapture', releaseFire);
+    aimButton.addEventListener('click', toggleAim);
+    reloadButton.addEventListener('click', reload);
 
     function move(delta) {
         walk.set(Number(keys.has('KeyD')) - Number(keys.has('KeyA')),
@@ -681,6 +822,7 @@ function init() {
         lastFrame = now;
         if (state !== 'active' && state !== 'countdown') return;
         const remaining = Math.max(0, phaseEnds - now);
+        let reloadProgress = null;
         if (state === 'countdown') {
             if (!remaining) {
                 countdown.hidden = true;
@@ -703,11 +845,13 @@ function init() {
             round.elapsed = elapsedAt(now);
             updateTimer(remaining);
             updateTargets(round.elapsed);
-            if (round.key === 'recoil' && heldFire.size) shoot();
+            reloadProgress = advanceReload(round.elapsed);
+            if (round.automatic && heldFire.size) shoot();
         }
         if (round.control === 'keyboard') aimWithKeys(delta * 1.05);
         move(delta);
-        arena.update(realDelta, round.elapsed / 1000, walk.lengthSq() > 0);
+        arena.update(realDelta, round.elapsed / 1000, walk.lengthSq() > 0, round.aimed, reloadProgress);
+        controls.pointerSpeed = preferences.sensitivity / camera.zoom;
         if (now - lastPerformanceLabel > 1000) {
             const performance = arena.performance();
             byId('performance').textContent = `${performance.fps} FPS · ${preferences.quality.toUpperCase()}`;
