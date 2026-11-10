@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createWeaponView } from './weapon-view.js';
 import { defaultLoadout, weapons } from './weapons.js';
+import { createSurvival } from './zombies.js';
 
 export const firingPosition = new THREE.Vector3(0, 3.65, 7);
 
@@ -409,6 +410,7 @@ export function createArena(container) {
         }),
     };
     const targets = Array.from({ length: 3 }, () => makeTarget(scene, materials));
+    let survival;
     const weapon = createWeaponView(glowMap);
     let loadout = weapons[defaultLoadout];
     const holes = Array.from({ length: 32 }, () => {
@@ -511,11 +513,12 @@ export function createArena(container) {
     const targetPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1));
     const planePoint = new THREE.Vector3();
 
-    function traceShot() {
+    function traceShot(zombies) {
         camera.updateMatrixWorld();
+        ray.setFromCamera(center, camera);
+        if (zombies) return zombies.trace(ray);
         const visible = targets.filter(target => target.visible);
         for (const target of visible) target.updateMatrixWorld();
-        ray.setFromCamera(center, camera);
         const [hit] = ray.intersectObjects(visible.map(target => target.userData.hitArea), false);
         let nearest = null;
         let nearestDistance = Infinity;
@@ -615,6 +618,11 @@ export function createArena(container) {
     return {
         camera, canvas, targets, resetCamera, resize, traceShot, burst, clearSparks,
         setEnvironment, configure, update, render, markImpact,
+        startSurvival() {
+            survival ??= createSurvival(scene);
+            survival.reset();
+            return survival;
+        },
         setLoadout(key) {
             loadout = weapons[key];
             weapon.select(key);

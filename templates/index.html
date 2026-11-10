@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#111316">
-    <meta name="description" content="Seven aim drills, three 3D arenas, and a personal training journal. Build your edge with AimForge.">
+    <meta name="description" content="Seven aim drills, five waves of Zombie Survival, and eight weapons across three 3D arenas. Build your edge with AimForge.">
     <title>AimForge · Training Range</title>
     <link rel="icon" href="{{ url_for('static', filename='aimforge.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='game.css') }}">
@@ -28,6 +28,7 @@
         <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="var(--icon-bg, #191b20)"/><circle cx="15" cy="17" r="2.5" fill="var(--icon-bg, #191b20)"/></symbol>
         <symbol id="icon-keyboard" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h1m3 0h1m3 0h1m-9 4h1m3 0h6"/></symbol>
         <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M9 5v14m6-14v14" stroke-width="2.5"/></symbol>
+        <symbol id="icon-zombie" viewBox="0 0 24 24"><path d="M7 18v-3H4V8l3-4h10l3 4v7h-3v3l-2 2H9zM8 10h2m4 0h2m-6 6h4"/></symbol>
         <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
         <symbol id="icon-external" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
     </svg>
@@ -50,7 +51,7 @@
             <section class="lobby" aria-labelledby="lobby-title">
                 <div class="eyebrow"><span class="stripes"></span> TRAINING FACILITY / 01</div>
                 <h1 id="lobby-title">Training<br>range<span>.</span></h1>
-                <p class="intro">Seven drills, three arenas, five loadouts.<br>A sharper version of your aim.</p>
+                <p class="intro">Seven aim drills, Zombie Survival, and eight weapons across three arenas.</p>
 
                 <fieldset class="drills">
                     <legend>SELECT A DRILL</legend>
@@ -69,7 +70,7 @@
                     <option value="expert">Expert · Smaller, faster targets</option>
                 </select>
                 <div class="launch-actions">
-                    <button class="primary-button" id="start-button" type="button" disabled><svg><use href="#icon-play"/></svg> Start drill <svg class="button-arrow"><use href="#icon-arrow"/></svg></button>
+                    <button class="primary-button" id="start-button" type="button" disabled><svg><use href="#icon-play"/></svg><span id="start-label">Start drill</span><svg class="button-arrow"><use href="#icon-arrow"/></svg></button>
                     <label class="control-select"><svg><use href="#icon-keyboard"/></svg><span class="sr-only">Control scheme</span>
                         <select id="control-select">
                             <option value="mouse">Mouse + keyboard</option>
@@ -102,6 +103,7 @@
 
                     <div id="combat" hidden>
                         <div class="scope-mask" aria-hidden="true"></div>
+                        <div class="survival-damage" id="survival-damage" aria-hidden="true" hidden></div>
                         <div class="combat-top">
                             <div class="combat-heading"><span class="eyebrow" id="combat-location">FOUNDRY / LIVE DRILL</span><strong id="active-drill">Reflex</strong></div>
                             <div class="hud">
@@ -113,6 +115,10 @@
                             <button class="subtle-button icon-button" id="pause-button" type="button" aria-label="Pause drill" title="Pause drill"><svg><use href="#icon-pause"/></svg></button>
                         </div>
                         <div class="time-track"><div id="time-bar"></div></div>
+                        <section class="survival-hud" id="survival-hud" aria-label="Survival status" hidden>
+                            <div class="survival-hud-line"><strong id="survival-wave"></strong><span id="survival-remaining"></span></div>
+                            <div class="survival-hud-line"><progress id="survival-health-bar" max="100" value="100" aria-label="Player health"></progress><strong id="survival-health"></strong></div>
+                        </section>
                         <div class="reticle" id="reticle" data-shape="cross" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
                         <div class="hit-marker" id="hit-marker" aria-hidden="true">×</div>
                         <div id="hit-feedback" class="hit-feedback" aria-hidden="true"></div>
@@ -162,6 +168,7 @@
                             <div class="eyebrow"><span class="stripes"></span> <span id="result-kicker">DRILL COMPLETE</span></div>
                             <h2 id="results-title">Session report.</h2>
                             <p id="result-mode"></p>
+                            <p class="survival-result" id="result-survival" hidden></p>
                             <div class="medal-line"><span id="result-medal"></span><span id="result-xp"></span></div>
                             <dl class="result-grid">
                                 <div><dt>Score</dt><dd id="result-score"></dd></div>
@@ -174,8 +181,8 @@
                             <p class="comparison" id="result-comparison"></p>
                             <p class="metric-note" id="result-weapon-stats"></p>
                             <div class="shot-report">
-                                <div><span class="eyebrow">SHOT PLACEMENT</span><canvas id="shot-map" width="260" height="200" aria-label="Shot placement relative to each target center"></canvas></div>
-                                <div><strong>Find your pattern.</strong><p id="shot-summary"></p><small>Each mark is relative to the target center. Orange marks hit, red marks missed. Edge marks fell outside this view.</small></div>
+                                <div><span class="eyebrow">SHOT PLACEMENT</span><canvas id="shot-map" width="260" height="200" aria-label="Shot placement"></canvas></div>
+                                <div><strong>Find your pattern.</strong><p id="shot-summary"></p><small id="shot-map-note"></small></div>
                             </div>
                             <p class="metric-note">Response measures target appearance to your first shot at it. Hit interval measures time between successful shots. Pauses are excluded.</p>
                             <button class="primary-button" id="replay-button" type="button"><svg><use href="#icon-play"/></svg> Play again</button>

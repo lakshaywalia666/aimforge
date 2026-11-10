@@ -83,6 +83,7 @@ function selectControl(value) {
 
 function refreshProgress() {
     sessions = readSessions();
+    byId('start-label').textContent = modes[selected].survival ? 'Start survival' : 'Start drill';
     renderProgress(sessions, selected, preferences);
     if (byId('journal-dialog').open) renderJournal(sessions, selected, preferences);
 }
@@ -95,7 +96,7 @@ function init() {
         label.innerHTML = `<input type="radio" name="drill" value="${key}">
             <span class="drill-icon"><svg><use href="#icon-${mode.icon}"/></svg></span>
             <span class="drill-copy"><strong>${mode.name}</strong><small>${mode.description}</small></span>
-            <span class="drill-duration">${mode.duration} SEC</span>`;
+            <span class="drill-duration">${mode.survival ? '2 MIN' : `${mode.duration} SEC`}</span>`;
         const radio = label.querySelector('input');
         radio.checked = key === selected;
         radio.addEventListener('change', () => {
@@ -114,7 +115,8 @@ function init() {
         const reload = weapon.magazine == null ? '—' : `${(weapon.reload / 1000).toFixed(2)}s`;
         // These labels and SVG paths come from the fixed weapon catalog.
         card.innerHTML = `<input type="radio" name="loadout" value="${key}">
-            <span class="armory-kind">${weapon.category} · ${weapon.automatic ? 'Auto' : 'Semi'}</span>
+            <span class="armory-meta"><span class="armory-kind">${weapon.category} · ${weapon.automatic ? 'Auto' : 'Semi'}</span>
+                ${weapon.sound.sample ? '<span class="armory-recorded">RECORDED AUDIO</span>' : ''}</span>
             <svg viewBox="0 0 100 32" aria-hidden="true"><path d="${weapon.silhouette}"/></svg>
             <strong>${weapon.name}</strong><span class="armory-description">${weapon.description}</span>
             <span class="armory-specs">
@@ -138,6 +140,7 @@ function init() {
 
     function equipLoadout(key) {
         preferences.loadout = key;
+        audio.ready(weapons[key].sound);
         showLoadout();
         saveValue('preferences', preferences);
         refreshProgress();
@@ -224,7 +227,7 @@ function init() {
         });
     }
     applyPreferences();
-    settingsDialog.addEventListener('close', () => audio.ready());
+    settingsDialog.addEventListener('close', () => audio.ready(weapons[preferences.loadout].sound));
 
     const fullscreenButton = byId('fullscreen-button');
     fullscreenButton.hidden = !document.fullscreenEnabled;
@@ -280,6 +283,12 @@ function init() {
     const score = byId('score');
     const accuracy = byId('accuracy');
     const streak = byId('streak');
+    const survivalHud = byId('survival-hud');
+    const survivalWave = byId('survival-wave');
+    const survivalRemaining = byId('survival-remaining');
+    const survivalHealth = byId('survival-health');
+    const survivalHealthBar = byId('survival-health-bar');
+    const survivalDamage = byId('survival-damage');
     const feedback = byId('hit-feedback');
     const marker = byId('hit-marker');
     const pauseButton = byId('pause-button');
@@ -398,10 +407,20 @@ function init() {
     }
 
     function updateTimer(remaining) {
-        const label = `0:${String(Math.ceil(remaining / 1000)).padStart(2, '0')}`;
+        const seconds = Math.ceil(remaining / 1000);
+        const label = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
         if (time.textContent !== label) time.textContent = label;
         timeBar.style.transform = `scaleX(${remaining / (round.mode.duration * 1000)})`;
         time.closest('.hud').toggleAttribute('data-urgent', remaining <= 5000);
+    }
+
+    function updateSurvivalHud() {
+        const { health, wave, waveCount, alive } = round.survival.state;
+        survivalWave.textContent = `WAVE ${wave || 1} / ${waveCount}`;
+        survivalRemaining.textContent = alive ? `${alive} ${alive === 1 ? 'HOSTILE' : 'HOSTILES'}` : 'INBOUND';
+        survivalHealth.textContent = `${health} HP`;
+        survivalHealthBar.value = health;
+        survivalHud.toggleAttribute('data-low', health <= 30);
     }
 
     function spawnTarget(target, point, elapsed) {
@@ -419,8 +438,8 @@ function init() {
         round = {
             id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             key: selected, mode, control, motionAccess, difficulty, difficultyKey: preferences.difficulty,
-            targetSize: preferences.targetSize, environment: preferences.environment,
-            radius: mode.radius * difficulty.radius * preferences.targetSize,
+            targetSize: mode.survival ? 1 : preferences.targetSize, environment: preferences.environment,
+            survival: mode.survival ? arena.startSurvival() : null, damageUntil: 0,
             score: 0, shots: 0, hits: 0, bullseyes: 0, streak: 0, bestStreak: 0, escaped: 0,
             lastShot: -Infinity, lastSpawn: positions[1][0], flickSide: 1, elapsed: 0,
             responses: [], intervals: [], placements: [], lastHitAt: null, sprayIndex: 0,
@@ -432,6 +451,10 @@ function init() {
         arena.setLoadout(loadout);
         arena.resetCamera(false);
         arena.clearSparks();
+        survivalHud.hidden = !round.survival;
+        survivalDamage.hidden = true;
+        if (round.survival) updateSurvivalHud();
+        else round.radius = mode.radius * difficulty.radius * preferences.targetSize;
         for (let i = 0; i < targets.length; i++) {
             const target = targets[i];
             target.visible = i < mode.count;
@@ -515,6 +538,11 @@ function init() {
             response: average(round.responses), interval: average(round.intervals),
             placements: round.placements, daily: round.daily,
         };
+        if (round.survival) {
+            const { health, wave, waveCount, kills } = round.survival.state;
+            const outcome = round.survival.cleared ? 'cleared' : health ? 'timeout' : 'overrun';
+            session.survival = { outcome, health, wave, waveCount, kills };
+        }
         const saved = saveSession(session);
         refreshProgress();
         const xpGained = profileFor(sessions).xp - profileFor(priorSessions).xp;
@@ -527,6 +555,7 @@ function init() {
     function returnToLobby() {
         pendingLock = null;
         clearInput();
+        round?.survival?.hide();
         setState('lobby');
         showPreview();
         refreshProgress();
@@ -552,7 +581,7 @@ function init() {
             const source = state;
             pendingMotion = true;
             const permission = requestMotionAccess();
-            audio.ready();
+            audio.ready(weapons[preferences.loadout].sound);
             const access = await permission;
             pendingMotion = false;
             if (state === source && preferences.control === 'gyro') {
@@ -561,7 +590,7 @@ function init() {
             }
             return;
         }
-        audio.ready();
+        audio.ready(weapons[preferences.loadout].sound);
         if (control !== 'mouse') {
             if (action === 'resume') resume(control);
             else startRound(control);
@@ -660,7 +689,8 @@ function init() {
         feedback.classList.remove('is-hit');
         marker.classList.remove('is-hit');
         feedback.dataset.miss = !hit;
-        feedback.textContent = hit ? bullseye ? '+150 · BULLSEYE' : '+100' : 'MISS';
+        const critical = round.survival ? 'HEADSHOT' : 'BULLSEYE';
+        feedback.textContent = hit ? bullseye ? `+150 · ${critical}` : '+100' : 'MISS';
         void feedback.offsetWidth;
         feedback.classList.add('is-hit');
         if (hit) {
@@ -728,7 +758,7 @@ function init() {
         if (round.ammo != null) round.ammo--;
         audio.play('shot', round.weapon.sound);
         arena.fire();
-        const shot = arena.traceShot();
+        const shot = arena.traceShot(round.survival);
         if (shot) {
             if (round.placements.length >= 300) round.placements.shift();
             round.placements.push(shot.placement);
@@ -748,7 +778,12 @@ function init() {
             round.lastHitAt = round.elapsed;
             arena.burst(shot.point);
             if (round.key === 'recoil') arena.markImpact(shot);
-            respawn(shot.target, round.elapsed);
+            if (round.survival) {
+                round.survival.hit(shot, round.elapsed);
+                updateSurvivalHud();
+            } else {
+                respawn(shot.target, round.elapsed);
+            }
             audio.play(shot.bullseye ? 'bullseye' : 'hit');
         } else {
             round.streak = 0;
@@ -762,6 +797,10 @@ function init() {
                 (recoil.pitch + Math.min(index, 12) * recoil.climb) * strength);
         }
         updateStats();
+        if (round.survival?.cleared) {
+            finishRound();
+            return;
+        }
         if (round.ammo === 0) beginReload(round.elapsed);
         else updateWeaponHud();
     }
@@ -938,6 +977,10 @@ function init() {
                 setState('active');
                 for (let i = 0; i < targets.length; i++) targets[i].visible = i < round.mode.count;
                 phaseEnds = now + round.mode.duration * 1000;
+                if (round.survival) {
+                    round.survival.update(0, 0, camera.position, round.difficulty);
+                    updateSurvivalHud();
+                }
                 audio.play('start');
             } else {
                 const label = String(Math.ceil(remaining / 1000));
@@ -954,8 +997,24 @@ function init() {
             round.elapsed = elapsedAt(now);
             updateTimer(remaining);
             updateTargets(round.elapsed);
+            if (round.survival) {
+                const survival = round.survival;
+                const { health, wave } = survival.state;
+                survival.update(delta, round.elapsed, camera.position, round.difficulty);
+                if (survival.state.health !== health || survival.state.wave !== wave) updateSurvivalHud();
+                if (survival.state.health < health) {
+                    round.damageUntil = round.elapsed + 260;
+                    audio.play('damage');
+                }
+                survivalDamage.hidden = !preferences.motion || round.elapsed >= round.damageUntil;
+                if (!survival.state.health) {
+                    finishRound();
+                    return;
+                }
+            }
             reloadProgress = advanceReload(round.elapsed);
             if (round.automatic && heldFire.size) shoot();
+            if (state !== 'active') return;
         }
         if (round.control === 'keyboard') aimWithKeys(delta * 1.05);
         move(delta);

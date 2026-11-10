@@ -8,7 +8,10 @@ export const modes = {
     flick: { name: 'Wide flick', duration: 30, count: 1, radius: .85, description: 'Alternate across the range', icon: 'reflex' },
     peek: { name: 'Quick peek', duration: 30, count: 1, radius: .95, description: 'Hit targets before they vanish', icon: 'precision' },
     recoil: { name: 'Recoil', duration: 30, count: 1, radius: 1.55, description: 'Control the climb on one target', icon: 'reflex' },
+    zombies: { name: 'Zombie Survival', duration: 120, count: 0, survival: true, description: 'Fight through five waves', icon: 'zombie' },
 };
+
+const aimDrills = Object.keys(modes).filter(key => !modes[key].survival);
 
 export const difficulties = {
     relaxed: { name: 'Relaxed', radius: 1.25, speed: .7, exposure: 1800 },
@@ -70,7 +73,8 @@ export function loadPreferences(coarsePointer, reducedMotion) {
 }
 
 export function configurationKey(mode, difficulty, size, loadout) {
-    return `${mode}.${difficulty}.${Number(size).toFixed(2)}.${loadoutKey(loadout)}`;
+    const targetSize = modes[mode]?.survival ? 1 : Number(size);
+    return `${mode}.${difficulty}.${targetSize.toFixed(2)}.${loadoutKey(loadout)}`;
 }
 
 export function readSessions() {
@@ -142,8 +146,8 @@ export function dateKey(date = new Date()) {
 
 export function dailyChallenge(date = new Date()) {
     const day = dateKey(date);
-    const index = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000) % Object.keys(modes).length;
-    const mode = Object.keys(modes)[index];
+    const index = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000) % aimDrills.length;
+    const mode = aimDrills[index];
     return { day, mode, hits: 15, accuracy: 70 };
 }
 
@@ -167,13 +171,15 @@ export function profileFor(sessions) {
     const hits = sessions.reduce((total, session) => total + session.hits, 0);
     const dailyDays = new Set(sessions.filter(qualifiesForDaily).map(session => session.daily.day));
     const xp = sessions.reduce((total, session) => total + 100 + session.hits * 10 + session.bullseyes * 5, 0) + dailyDays.size * 250;
+    const completed = new Set(sessions.map(session => session.mode));
     const medals = [
         { name: 'First steps', description: 'Complete your first drill', earned: sessions.length >= 1 },
         { name: 'On target', description: 'Land 100 total hits', earned: hits >= 100 },
         { name: 'Regular', description: 'Complete 10 drills', earned: sessions.length >= 10 },
         { name: 'Sharpshooter', description: '90% accuracy with at least 20 shots', earned: sessions.some(session => session.shots >= 20 && session.hits / session.shots >= .9) },
         { name: 'In the zone', description: 'Build a 20-hit streak', earned: sessions.some(session => session.bestStreak >= 20) },
-        { name: 'All rounder', description: 'Complete all seven drills', earned: new Set(sessions.map(session => session.mode)).size === Object.keys(modes).length },
+        { name: 'All rounder', description: 'Complete all seven aim drills', earned: aimDrills.every(key => completed.has(key)) },
+        { name: 'Last stand', description: 'Clear all five zombie waves', earned: sessions.some(session => session.survival?.outcome === 'cleared') },
         { name: 'Daily discipline', description: 'Complete a daily challenge', earned: dailyDays.size > 0 },
     ];
     return { hits, xp, level: Math.floor(xp / 1000) + 1, medals, dailyDays };

@@ -1,6 +1,6 @@
 # AimForge 3D Trainer
 
-AimForge is a browser-based 3D aim trainer built with Three.js and served by Flask. Train across seven drills in three arenas with five weapons, customize your aim setup, and track your progress in a personal journal.
+AimForge is a browser-based 3D aim trainer built with Three.js and served by Flask. Play seven aim drills and Zombie Survival across three arenas, choose from eight weapons, and track your progress in a personal journal.
 
 [Play on GitHub Pages](https://lakshaywalia666.github.io/aimforge/) · [Portfolio](https://lakshaywalia.com/projects.html)
 
@@ -38,6 +38,9 @@ To generate the same static site locally, install the Python dependencies and ru
 | Wide flick | 30 seconds | Alternate between targets on opposite sides of the range. |
 | Quick peek | 30 seconds | Hit targets before they disappear. |
 | Recoil | 30 seconds | Keep your shots grouped as you compensate for the weapon's recoil pattern. |
+| Zombie Survival | 2 minutes | Clear five waves before the zombies take your health or the timer runs out. |
+
+In **Zombie Survival**, start with 100 HP. Keep moving as the zombies close in, and watch the wave and health indicators. A headshot eliminates a zombie in one shot and earns 150 points. Two body hits eliminate a zombie at 100 points per hit. Difficulty changes zombie speed and damage. Clear all five waves to earn the Last stand medal.
 
 Use WASD to move. With a captured mouse, aim with the mouse and click to fire. In keyboard mode, aim with the arrow keys and press Space or select **Fire**. In either mobile mode, use the left thumbstick to move, drag the range to aim, and tap **Fire**. The thumbstick and aim or fire controls can be used together. Press Esc on desktop or use the pause button in keyboard or mobile mode.
 
@@ -52,6 +55,9 @@ A hit earns 100 points and a bullseye earns 150. Select **Armory** to equip a we
 | Wraith SMG | Automatic | 24 | 1.3× |
 | Atlas C4 | Automatic | 20 | 1.6× |
 | Longshot DMR | Semi-auto | 6 | 2.4× |
+| AK-47 | Automatic | 30 | 1.45× |
+| Colt M4A1 SOCOM | Automatic | 30 | 1.55× |
+| Colt 1911 | Semi-auto | 7 | 1.35× |
 
 Press Q, right-click with captured mouse, or tap **Aim** to toggle sights. Press R or tap **Reload** to refill the magazine. An empty magazine starts a reload automatically. Hold the trigger on automatic weapons. Reloads and firing cooldowns use the drill clock, so they pause with the round.
 
@@ -61,7 +67,7 @@ Choose **Foundry**, **Laboratory**, or the outdoor **Outpost** above the arena p
 
 The session report includes score, accuracy, hits, shots, best streak, aimed hits, completed reloads, average target response, average time between hits, and a map of the last 300 projected shots. Response measures the time from a target appearing to the first shot at it. Pauses are excluded from timing metrics. Shots aimed away from every target plane do not appear on the placement map.
 
-Open the **Training journal** for your latest 30 sessions, milestone medals, and a score trend for the latest 10 matching runs. Personal records and comparisons use the same drill, difficulty, target size, and weapon. Earlier scores appear under the Forge Trainer. Records from the original three-drill game use Standard difficulty and 1.0× targets.
+Open the **Training journal** for your latest 30 sessions, milestone medals, and a score trend for the latest 10 matching runs. Aim drill records use the same drill, difficulty, target size, and weapon. Zombie Survival records use difficulty and weapon. Earlier scores appear under the Forge Trainer. Records from the original three-drill game use Standard difficulty and 1.0× targets.
 
 Completed drills award 100 XP, plus 10 XP per hit and 5 XP per bullseye. Every 1,000 XP earns a level. Performance medals require 5 hits at 50% accuracy for Bronze, 15 at 75% for Silver, or 25 at 90% for Gold.
 
@@ -73,6 +79,16 @@ AimForge stores completed sessions, personal records, milestones, and settings i
 
 The repository includes the required Three.js r160 browser modules and their MIT license under `static/lib/three`. No private configuration, databases or player data are needed.
 
+## Gunshot recording credits
+
+The three named firearms use recordings published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). AimForge bundles their MP3 previews and fades the tails during playback for rapid fire.
+
+| Weapon | Recording |
+| --- | --- |
+| AK-47 | [AK47 Shot by LeMudCrab](https://freesound.org/people/LeMudCrab/sounds/163457/) |
+| Colt M4A1 SOCOM | [Colt M4A1 SOCOM by areniporgen](https://freesound.org/people/areniporgen/sounds/737569/) |
+| Colt 1911 | [Pistol Shot by LeMudCrab](https://freesound.org/people/LeMudCrab/sounds/163456/) |
+
 ## Project structure
 
 ```text
@@ -81,11 +97,13 @@ build_pages.py            Static export for GitHub Pages
 templates/index.html      Lobby, controls, and session report
 static/game.js            Drill rules, inputs, and local records
 static/arena.js           3D range, targets, and hit detection
+static/zombies.js         Survival waves, enemy movement, and combat
 static/weapons.js         Weapon catalog and handling values
 static/weapon-view.js     3D weapon models and firing animations
 static/training.js        Drill catalog, saved sessions, and progression
 static/reports.js         Session reports, shot maps, and journal
-static/audio.js           Procedural shot and feedback sounds
+static/audio.js           Recorded and procedural sounds
+static/sounds/            CC0 firearm recordings
 static/game.css           Lobby and in-game HUD styling
 static/lib/three/         Three.js modules and upstream license
 requirements.txt          Python dependencies

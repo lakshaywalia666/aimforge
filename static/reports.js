@@ -7,11 +7,13 @@ import { loadoutKey, weapons } from './weapons.js';
 const byId = id => document.getElementById(id);
 const milliseconds = value => Number.isFinite(value) ? `${Math.round(value).toLocaleString()} ms` : '—';
 const accuracy = session => session.shots ? `${Math.round(session.hits * 100 / session.shots)}%` : '—';
+const rangeSettings = (mode, difficulty, size) =>
+    difficulties[difficulty].name + (modes[mode].survival ? '' : ` · ${size.toFixed(1)}×`);
 
 export function renderProgress(sessions, selected, preferences) {
     const record = getRecord(sessions, selected, preferences.difficulty, preferences.targetSize, preferences.loadout);
     const weapon = weapons[loadoutKey(preferences.loadout)];
-    const context = `${difficulties[preferences.difficulty].name} · ${preferences.targetSize.toFixed(1)}× · ${weapon.name}`;
+    const context = `${rangeSettings(selected, preferences.difficulty, preferences.targetSize)} · ${weapon.name}`;
     byId('record-mode').textContent = modes[selected].name;
     byId('best-score').textContent = record.completed ? record.score.toLocaleString() : '—';
     byId('best-accuracy').textContent = record.accuracy == null ? '—' : `${record.accuracy}%`;
@@ -87,7 +89,7 @@ export function renderJournal(sessions, selected, preferences) {
         settings.textContent = modes[session.mode].name;
         const context = document.createElement('small');
         const weapon = weapons[loadoutKey(session.loadout)];
-        context.textContent = `${difficulties[session.difficulty].name} · ${session.targetSize.toFixed(1)}× · ${environments[session.environment]?.name ?? 'Foundry'} · ${weapon.name}`;
+        context.textContent = `${rangeSettings(session.mode, session.difficulty, session.targetSize)} · ${environments[session.environment]?.name ?? 'Foundry'} · ${weapon.name}`;
         settings.append(context);
         row.append(settings);
         const values = [
@@ -139,8 +141,17 @@ export function renderReport(session, priorSessions, xpGained) {
     const record = getRecord(priorSessions, session.mode, session.difficulty, session.targetSize, session.loadout);
     const previous = matchingSessions(priorSessions, session.mode, session.difficulty, session.targetSize, session.loadout).at(-1);
     const weapon = weapons[loadoutKey(session.loadout)];
-    byId('result-kicker').textContent = session.score > record.score ? 'NEW PERSONAL BEST' : 'DRILL COMPLETE';
-    byId('result-mode').textContent = `${modes[session.mode].name} · ${difficulties[session.difficulty].name} · ${session.targetSize.toFixed(1)}× · ${environments[session.environment].name} · ${weapon.name}`;
+    const completed = session.survival ? 'SURVIVAL COMPLETE' : 'DRILL COMPLETE';
+    byId('result-kicker').textContent = session.score > record.score ? 'NEW PERSONAL BEST' : completed;
+    byId('result-mode').textContent = `${modes[session.mode].name} · ${rangeSettings(session.mode, session.difficulty, session.targetSize)} · ${environments[session.environment].name} · ${weapon.name}`;
+    const survival = session.survival;
+    const survivalResult = byId('result-survival');
+    survivalResult.hidden = !survival;
+    if (survival) {
+        const outcome = { cleared: 'All waves cleared', overrun: 'Overrun', timeout: 'Time expired' };
+        survivalResult.dataset.outcome = survival.outcome;
+        survivalResult.textContent = `${outcome[survival.outcome]} · Wave ${survival.wave}/${survival.waveCount} · ${survival.kills} eliminated · ${survival.health} HP`;
+    }
     byId('result-score').textContent = session.score.toLocaleString();
     byId('result-accuracy').textContent = accuracy(session);
     byId('result-hits').textContent = `${session.hits} / ${session.shots}`;
@@ -158,6 +169,11 @@ export function renderReport(session, priorSessions, xpGained) {
     byId('result-comparison').textContent = previous
         ? `${delta > 0 ? '+' : ''}${delta.toLocaleString()} points versus your previous matching run.`
         : 'Your first session with these settings. Your next run will have a comparison.';
-    byId('shot-summary').textContent = `${session.bullseyes} bullseyes · ${session.escaped} targets expired. Showing the last ${session.placements.length} projected shots.`;
+    byId('shot-summary').textContent = survival
+        ? `${session.bullseyes} headshots · ${survival.kills} zombies eliminated.`
+        : `${session.bullseyes} bullseyes · ${session.escaped} targets expired. Showing the last ${session.placements.length} projected shots.`;
+    byId('shot-map-note').textContent = survival
+        ? 'Each mark is relative to the center of the body part it hit.'
+        : 'Each mark is relative to the target center. Orange marks hit, red marks missed. Edge marks fell outside this view.';
     renderShotMap(session.placements);
 }

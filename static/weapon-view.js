@@ -8,6 +8,9 @@ const shapes = {
     smg: { body: .56, barrel: .25, width: .23, scale: .60, stock: .26 },
     carbine: { body: .75, barrel: .34, width: .20, scale: .55, stock: .32, optic: .19 },
     marksman: { body: .91, barrel: .49, width: .19, scale: .52, stock: .36, optic: .34 },
+    ak47: { body: .95, barrel: .49, width: .18, scale: .53, stock: .47, wood: true, curvedMagazine: true },
+    m4a1: { body: .94, barrel: .41, width: .19, scale: .54, stock: .39, rail: true },
+    m1911: { body: .47, barrel: .105, width: .135, scale: .71, wood: true, steelSlide: true },
 };
 
 function metal(color, roughness = .58) {
@@ -32,25 +35,27 @@ function tube(parent, material, radius, length, y, z, open = false) {
 
 function buildModel(key, glowMap) {
     const shape = shapes[key];
-    const { body, barrel, width, stock, optic } = shape;
+    const { body, barrel, width, stock, optic, wood, curvedMagazine, rail, steelSlide } = shape;
     const group = new THREE.Group();
     group.scale.setScalar(shape.scale);
     const dark = metal(0x272f3a);
-    const edge = metal(0x73808a, .42);
+    const edge = metal(steelSlide ? 0xa6adb0 : 0x73808a, .42);
     const polymer = metal(0x161b22, .85);
     const glove = metal(0x434e58, .9);
-    const trim = new THREE.MeshBasicMaterial({ color: weapons[key].accent });
+    const walnut = wood ? metal(curvedMagazine ? 0x92532f : 0x6f3823, .7) : null;
+    const trim = weapons[key].sound.sample ? edge : new THREE.MeshBasicMaterial({ color: weapons[key].accent });
     const front = -body * .5;
     const muzzle = front - barrel;
 
     block(group, dark, width, .155, body, 0, 0, 0);
-    const slide = block(group, edge, width * .94, .085, body * .87, 0, .10, front * .10);
-    block(group, polymer, width * .96, .032, body * .89, 0, .153, 0);
+    const slide = block(group, edge, width * .94, steelSlide ? .125 : .085, body * .87, 0, .10, front * .10);
+    if (!steelSlide) block(group, polymer, width * .96, .032, body * .89, 0, .153, 0);
     tube(group, dark, stock ? .048 : .051, barrel, .046, front - barrel * .5);
     tube(group, edge, key === 'marksman' ? .068 : .054, barrel * .42, .046, muzzle + barrel * .21);
     tube(group, polymer, .031, .008, .046, muzzle - .004);
     for (const side of [-1, 1]) {
-        block(group, trim, .012, .017, body * .56, side * width * .504, .035, front * .21);
+        if (!weapons[key].sound.sample) block(group, trim, .012, .017, body * .56, side * width * .504, .035, front * .21);
+        if (steelSlide) block(group, walnut, .027, .193, .131, side * width * .37, -.16, body * .26).rotation.x = -.28;
         for (let i = 0; i < 4; i++) {
             block(group, polymer, .014, .046, .019, side * width * .48, .106, .04 + i * .042);
         }
@@ -64,16 +69,45 @@ function buildModel(key, glowMap) {
     magazine.position.set(0, stock ? -.18 : -.247, stock ? front * .55 : body * .33);
     magazine.rotation.x = stock ? -.17 : -.24;
     group.add(magazine);
-    block(magazine, polymer, width * .68, stock ? .26 : .14, .13, 0, -.012, 0);
-    block(magazine, edge, width * .78, .026, .15, 0, stock ? -.14 : -.093, 0);
+    if (curvedMagazine) {
+        block(magazine, dark, width * .82, .18, .16, 0, -.015, 0);
+        block(magazine, dark, width * .82, .15, .16, 0, -.157, .022).rotation.x = -.35;
+        block(magazine, dark, width * .82, .12, .16, 0, -.263, .08).rotation.x = -.65;
+        block(magazine, edge, width * .86, .026, .17, 0, -.31, .12).rotation.x = -.65;
+    } else {
+        block(magazine, polymer, width * .68, stock ? .26 : .14, .13, 0, -.012, 0);
+        block(magazine, edge, width * .78, .026, .15, 0, stock ? -.14 : -.093, 0);
+    }
 
     if (stock) {
-        block(group, dark, width * .60, .09, stock, 0, -.015, body * .5 + stock * .36);
-        block(group, polymer, width * .76, .18, .055, 0, -.049, body * .5 + stock * .83);
+        const butt = body * .5 + stock * .83;
+        block(group, walnut ?? dark, width * .64, wood ? .15 : .09, stock, 0, -.025, body * .5 + stock * .36).rotation.x = wood ? .13 : 0;
+        block(group, polymer, width * .76, .18, .055, 0, -.049, butt);
         block(group, glove, width * .86, .105, .19, -.046, -.102, front * .78);
-        for (let i = 0; i < 5; i++) {
-            block(group, edge, width * .92, .02, .019, 0, .171, front + .08 + i * .049);
+        if (curvedMagazine) {
+            block(group, walnut, width * 1.12, .183, .34, 0, .014, front + .041);
+            block(group, walnut, width * .73, .093, .26, 0, .152, front + .008);
+            tube(group, dark, .028, .29, .132, front - .15);
+            block(group, dark, .064, .20, .055, 0, .12, muzzle + .096);
+            block(group, edge, .022, .063, .027, 0, .239, muzzle + .096);
+        } else {
+            const railStart = rail ? front - .17 : front + .08;
+            for (let i = 0; i < (rail ? 12 : 5); i++) {
+                block(group, edge, width * .92, .025, .019, 0, .171, railStart + i * .043);
+            }
+            if (rail) {
+                block(group, polymer, width * 1.08, .145, .42, 0, .045, front - .025);
+                block(group, polymer, width * .73, .11, .18, 0, -.065, butt - .08).rotation.x = -.36;
+                for (const side of [-1, 1]) {
+                    block(group, edge, .018, .135, .04, side * .035, .19, muzzle + .18).rotation.z = side * .27;
+                }
+            }
         }
+    }
+    if (steelSlide) {
+        block(group, edge, .035, .095, .065, 0, .119, body * .48).rotation.x = -.42;
+        block(group, dark, .07, .03, .14, 0, -.127, .04);
+        block(group, dark, .07, .10, .028, 0, -.082, -.022);
     }
     if (optic) {
         block(group, polymer, width * .61, .07, optic * .65, 0, .199, -.03);

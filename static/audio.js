@@ -1,8 +1,9 @@
 export function createAudio(preferences) {
     let context;
     let noise;
+    const samples = new Map();
 
-    function ready() {
+    function ready(shotSound) {
         if (!preferences.sound || !window.AudioContext) return;
         try {
             context ??= new AudioContext();
@@ -12,6 +13,19 @@ export function createAudio(preferences) {
                 for (let i = 0; i < channel.length; i++) channel[i] = Math.random() * 2 - 1;
             }
             context.resume().catch(() => {});
+            const url = shotSound?.sample;
+            if (url && !samples.has(url)) {
+                const sample = {};
+                samples.set(url, sample);
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Recording unavailable');
+                        return response.arrayBuffer();
+                    })
+                    .then(data => context.decodeAudioData(data))
+                    .then(buffer => { sample.buffer = buffer; })
+                    .catch(() => samples.delete(url));
+            }
         } catch {
             // Effects are optional when audio is unavailable.
         }
@@ -35,6 +49,20 @@ export function createAudio(preferences) {
     function play(name, shotSound) {
         if (!preferences.sound || preferences.volume <= 0 || context?.state !== 'running') return;
         if (name === 'shot') {
+            const recorded = samples.get(shotSound.sample)?.buffer;
+            if (recorded) {
+                const source = context.createBufferSource();
+                const gain = context.createGain();
+                const time = context.currentTime;
+                const tail = Math.min(.32, recorded.duration);
+                gain.gain.setValueAtTime(preferences.volume * .5, time);
+                gain.gain.setValueAtTime(preferences.volume * .5, time + Math.min(.09, tail / 2));
+                gain.gain.exponentialRampToValueAtTime(.001, time + tail);
+                source.buffer = recorded;
+                source.connect(gain).connect(context.destination);
+                source.start(time, 0, tail);
+                return;
+            }
             const { pitch, tail, length, cutoff, crack } = shotSound;
             tone(pitch, tail, length, .22, 'triangle');
             const source = context.createBufferSource();
@@ -63,6 +91,8 @@ export function createAudio(preferences) {
             tone(470, 420, .12, .07);
         } else if (name === 'start') {
             tone(540, 820, .2, .11);
+        } else if (name === 'damage') {
+            tone(125, 49, .18, .16, 'triangle');
         } else if (name === 'complete') {
             tone(520, 660, .18, .09);
             tone(780, 1040, .23, .09, 'sine', .12);

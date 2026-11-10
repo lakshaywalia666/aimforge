@@ -1,5 +1,7 @@
 export const defaultLoadout = 'trainer';
 
+const recording = name => new URL(`./sounds/${name}.mp3`, import.meta.url).href;
+
 export const weapons = {
     trainer: {
         name: 'Forge Trainer',
@@ -50,6 +52,36 @@ export const weapons = {
         magazine: 6, interval: 420, reload: 1800, zoom: 2.4, automatic: false, scoped: true,
         recoil: { pitch: .029, yaw: .003, climb: 0 },
         sound: { pitch: 102, tail: 31, length: .22, cutoff: 940, crack: .25 },
+    },
+    ak47: {
+        name: 'AK-47',
+        category: 'Assault rifle',
+        description: 'Wood furniture, a curved magazine, and heavy recoil in automatic fire.',
+        accent: '#e7a674',
+        silhouette: 'M2 12 24 9h13V7h24l6 3h13V7h3v4h14v4H66l-5 4 1 6 4 3-5 3-8-4-3-9h-8l-5 10H26l5-11H20L2 22z',
+        magazine: 30, interval: 100, reload: 1850, zoom: 1.45, automatic: true,
+        recoil: { pitch: .019, yaw: .006, climb: .00075 },
+        sound: { sample: recording('ak47'), pitch: 122, tail: 40, length: .15, cutoff: 1700, crack: .23 },
+    },
+    m4a1: {
+        name: 'Colt M4A1 SOCOM',
+        category: 'Carbine',
+        description: 'A railed carbine with a fast cycle and a lighter recoil pattern.',
+        accent: '#b9d5a1',
+        silhouette: 'M3 10h23V8h16V5h15v3h18l4 3h18v4H75l-4 3H62l-1 11H49l2-11H38l-5 10H23l4-11H9l-2 6H3z',
+        magazine: 30, interval: 80, reload: 1650, zoom: 1.55, automatic: true,
+        recoil: { pitch: .012, yaw: .004, climb: .00045 },
+        sound: { sample: recording('m4a1'), pitch: 158, tail: 48, length: .12, cutoff: 2200, crack: .21 },
+    },
+    m1911: {
+        name: 'Colt 1911',
+        category: 'Sidearm',
+        description: 'A steel slide, walnut grips, and deliberate single shots.',
+        accent: '#e2bc87',
+        silhouette: 'M12 8h59l6 3v7H47l-5 12H28l5-13h-8l-6-4h-7z M42 16h14v5H45z M15 7h7v3h-7z',
+        magazine: 7, interval: 220, reload: 1050, zoom: 1.35, automatic: false,
+        recoil: { pitch: .015, yaw: .002, climb: .0004 },
+        sound: { sample: recording('m1911'), pitch: 175, tail: 61, length: .12, cutoff: 2000, crack: .19 },
     },
 };
 
